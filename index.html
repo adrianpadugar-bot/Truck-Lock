@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SealTrack — GPS Truck Lock Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#F4F5F8;
+  --surface:#FFFFFF;
+  --surface-2:#EEF1F6;
+  --navy:#131F38;
+  --navy-2:#1D2D4D;
+  --navy-3:#28406B;
+  --accent:#E28F35;
+  --accent-dark:#C97620;
+  --accent-bg:#FCEBD6;
+  --success:#1F8B4C;
+  --success-bg:#E2F5EA;
+  --warning:#B4740E;
+  --warning-bg:#FBEED4;
+  --slate:#5B6478;
+  --slate-bg:#E8EBF0;
+  --danger:#C0392B;
+  --danger-bg:#FBEAE8;
+  --border:#DDE2EA;
+  --text:#131A2A;
+  --text-dim:#5B6478;
+  --font-display:'Space Grotesk', sans-serif;
+  --font-body:'Inter', sans-serif;
+  --font-mono:'JetBrains Mono', monospace;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+#app{min-height:100vh;}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+::selection{background:var(--accent-bg);}
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:#C7CEDA;border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+/* ---------- Login ---------- */
+.login-wrap{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 15% 20%, rgba(226,143,53,0.10), transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(40,64,107,0.12), transparent 45%),
+    var(--navy);
+  padding:24px;
+}
+.login-card{
+  background:var(--surface);
+  width:100%;
+  max-width:420px;
+  border-radius:14px;
+  padding:38px 36px 32px;
+  box-shadow:0 30px 60px -20px rgba(0,0,0,0.5);
+  position:relative;
+  overflow:hidden;
+}
+.login-card::before{
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;height:6px;
+  background:linear-gradient(90deg,var(--navy) 0%,var(--navy) 48%,var(--accent) 48%,var(--accent) 100%);
+}
+.brand-mark{
+  display:flex;align-items:center;gap:10px;margin-bottom:6px;
+}
+.seal-icon{width:36px;height:36px;flex-shrink:0;}
+.brand-name{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:22px;
+  letter-spacing:-0.02em;
+  color:var(--navy);
+}
+.brand-sub{
+  font-size:12.5px;
+  color:var(--text-dim);
+  margin:0 0 28px;
+  padding-left:46px;
+  letter-spacing:0.02em;
+}
+.field{margin-bottom:16px;}
+.field label{
+  display:block;font-size:12px;font-weight:600;color:var(--text-dim);
+  text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;
+}
+.field input, .field select, .field textarea{
+  width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:8px;
+  font-size:14.5px;color:var(--text);background:var(--surface);transition:border-color .15s;
+}
+.field input:focus, .field select:focus, .field textarea:focus{
+  outline:none;border-color:var(--navy-3);
+}
+.btn{
+  border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:transform .08s, box-shadow .15s, background .15s;
+  white-space:nowrap;
+}
+.btn:active{transform:translateY(1px);}
+.btn-primary{background:var(--navy);color:#fff;}
+.btn-primary:hover{background:var(--navy-2);}
+.btn-accent{background:var(--accent);color:#fff;}
+.btn-accent:hover{background:var(--accent-dark);}
+.btn-ghost{background:var(--surface-2);color:var(--text);}
+.btn-ghost:hover{background:#E1E5EC;}
+.btn-danger{background:var(--danger-bg);color:var(--danger);}
+.btn-danger:hover{background:#F6D5D1;}
+.btn-success{background:var(--success-bg);color:var(--success);}
+.btn-success:hover{background:#CFEEDC;}
+.btn-block{width:100%;}
+.btn-sm{padding:6px 11px;font-size:12.5px;border-radius:6px;}
+.btn:disabled{opacity:0.42;cursor:not-allowed;}
+.login-btn{margin-top:6px;}
+.login-hint{
+  margin-top:20px;padding:12px 14px;background:var(--surface-2);border-radius:8px;
+  font-size:12.5px;color:var(--text-dim);line-height:1.5;
+}
+.login-hint b{color:var(--text);font-family:var(--font-mono);}
+.login-error{
+  background:var(--danger-bg);color:var(--danger);font-size:13px;padding:10px 12px;
+  border-radius:8px;margin-bottom:16px;font-weight:500;
+}
+
+/* ---------- App shell ---------- */
+.shell{display:flex;min-height:100vh;}
+.sidebar{
+  width:230px;flex-shrink:0;background:var(--navy);color:#fff;
+  display:flex;flex-direction:column;padding:22px 14px;position:sticky;top:0;height:100vh;
+}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:2px 8px 22px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:18px;}
+.sb-brand .seal-icon{width:28px;height:28px;}
+.sb-brand-text{font-family:var(--font-display);font-weight:700;font-size:17px;letter-spacing:-0.02em;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;
+  color:rgba(255,255,255,0.72);font-size:14px;font-weight:500;margin-bottom:3px;
+  background:none;border:none;width:100%;text-align:left;transition:background .12s,color .12s;
+}
+.nav-item:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.nav-item.active{background:var(--accent);color:#fff;font-weight:600;}
+.nav-item svg{flex-shrink:0;width:17px;height:17px;}
+.sb-footer{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1);}
+.sb-user{padding:8px 10px;font-size:12.5px;color:rgba(255,255,255,0.65);margin-bottom:8px;}
+.sb-user b{color:#fff;display:block;font-size:13.5px;margin-bottom:1px;}
+.tag-pill{
+  display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:0.05em;padding:2px 7px;border-radius:20px;margin-top:4px;
+}
+.tag-admin{background:var(--accent);color:#fff;}
+.tag-dest{background:rgba(255,255,255,0.14);color:#fff;}
+
+.main{flex:1;min-width:0;padding:26px 32px 60px;}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+.page-title{font-family:var(--font-display);font-size:25px;font-weight:700;letter-spacing:-0.01em;margin:0;}
+.page-sub{color:var(--text-dim);font-size:13.5px;margin:3px 0 0;}
+
+/* ---------- Cards / summary ---------- */
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:24px;}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 18px 16px;
+  position:relative;overflow:hidden;cursor:pointer;user-select:none;
+  transition:transform .1s ease, box-shadow .15s ease, border-color .15s ease;
+}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 10px 24px -12px rgba(19,31,56,0.25);}
+.stat-card:active{transform:translateY(0);}
+.stat-card:focus-visible{outline:2px solid var(--navy-3);outline-offset:2px;}
+.stat-card.is-active{border-color:var(--navy-3);box-shadow:0 0 0 2px rgba(29,45,77,0.14);}
+.stat-card::after{content:"";position:absolute;top:0;left:0;bottom:0;width:4px;}
+.stat-card.c-total::after{background:var(--navy-3);}
+.stat-card.c-available::after{background:var(--slate);}
+.stat-card.c-assigned::after{background:var(--warning);}
+.stat-card.c-received::after{background:var(--success);}
+.stat-label{font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-dim);font-weight:600;}
+.stat-value{font-family:var(--font-display);font-size:32px;font-weight:700;margin-top:6px;}
+
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 22px;margin-bottom:20px;}
+.panel-title{font-family:var(--font-display);font-weight:600;font-size:16.5px;margin:0 0 4px;}
+.panel-sub{font-size:12.5px;color:var(--text-dim);margin:0 0 14px;}
+
+/* ---------- Table ---------- */
+.table-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;}
+.table-toolbar .grow{flex:1;min-width:160px;}
+.search-input{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13.5px;}
+.search-input:focus{outline:none;border-color:var(--navy-3);}
+.filter-select{padding:9px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:820px;}
+thead th{
+  background:var(--surface-2);text-align:left;padding:10px 12px;font-size:11px;
+  text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);font-weight:700;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+}
+tbody td{padding:10px 12px;border-bottom:1px solid #EEF0F4;vertical-align:middle;white-space:nowrap;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:#FAFBFD;}
+.mono{font-family:var(--font-mono);font-weight:600;letter-spacing:0.01em;}
+.empty-row td{text-align:center;padding:36px 12px;color:var(--text-dim);}
+
+.badge{
+  display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;
+  font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.03em;
+}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;}
+.badge-available{background:var(--slate-bg);color:var(--slate);}
+.badge-assigned{background:var(--warning-bg);color:var(--warning);}
+.badge-received{background:var(--success-bg);color:var(--success);}
+
+.action-row{display:flex;gap:6px;flex-wrap:wrap;}
+.row-check{width:16px;height:16px;accent-color:var(--navy);}
+
+/* ---------- Modal ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(15,20,35,0.55);display:flex;align-items:center;
+  justify-content:center;z-index:100;padding:20px;backdrop-filter:blur(2px);
+}
+.modal{
+  background:var(--surface);border-radius:14px;max-width:560px;width:100%;max-height:88vh;
+  overflow-y:auto;box-shadow:0 30px 70px -15px rgba(0,0,0,0.4);
+}
+.modal-header{padding:20px 24px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;}
+.modal-title{font-family:var(--font-display);font-weight:700;font-size:18px;margin:0;}
+.modal-sub{font-size:12.5px;color:var(--text-dim);margin:4px 0 0;}
+.modal-close{background:none;border:none;font-size:20px;color:var(--text-dim);line-height:1;padding:4px;}
+.modal-body{padding:20px 24px;}
+.modal-footer{padding:16px 24px 22px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.chip-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:110px;overflow-y:auto;padding:2px;}
+.chip{background:var(--surface-2);border-radius:20px;padding:4px 10px;font-size:12px;font-family:var(--font-mono);font-weight:600;}
+.upload-drop{
+  border:1.5px dashed var(--border);border-radius:10px;padding:22px;text-align:center;background:var(--surface-2);
+}
+.upload-drop input[type=file]{display:block;margin:10px auto 0;font-size:12.5px;}
+.divider-or{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--text-dim);font-size:11.5px;text-transform:uppercase;letter-spacing:0.06em;}
+.divider-or::before,.divider-or::after{content:"";flex:1;height:1px;background:var(--border);}
+.helper-text{font-size:11.5px;color:var(--text-dim);margin-top:5px;line-height:1.5;}
+.template-link{font-size:12px;color:var(--navy-3);font-weight:600;text-decoration:underline;background:none;border:none;padding:0;}
+
+/* ---------- Toast ---------- */
+.toast-stack{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:8px;}
+.toast{
+  background:var(--navy);color:#fff;padding:12px 16px;border-radius:9px;font-size:13.5px;font-weight:500;
+  box-shadow:0 12px 30px -8px rgba(0,0,0,0.4);min-width:220px;animation:toastIn .18s ease-out;
+}
+.toast.err{background:var(--danger);}
+.toast.ok{background:var(--success);}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+.summary-mini-table{width:100%;border-collapse:collapse;font-size:13px;}
+.summary-mini-table th{text-align:left;padding:8px 10px;color:var(--text-dim);font-size:11px;text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--border);}
+.summary-mini-table td{padding:8px 10px;border-bottom:1px solid #F0F1F5;}
+.summary-mini-table tr:last-child td{border-bottom:none;}
+
+.dest-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;
+  max-height:440px;overflow-y:auto;padding:2px 4px 2px 2px;
+}
+.dest-card{
+  background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:13px 14px 12px;
+  cursor:pointer;user-select:none;transition:transform .1s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+}
+.dest-card:hover{transform:translateY(-2px);box-shadow:0 8px 18px -10px rgba(19,31,56,0.25);}
+.dest-card:focus-visible{outline:2px solid var(--navy-3);outline-offset:2px;}
+.dest-card.is-active{border-color:var(--accent);background:var(--accent-bg);box-shadow:0 0 0 2px rgba(226,143,53,0.16);}
+.dest-card-name{
+  font-size:11.5px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.03em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.dest-card-value{font-family:var(--font-display);font-size:26px;font-weight:700;margin-top:5px;color:var(--success);}
+.dest-card.is-active .dest-card-value{color:var(--accent-dark);}
+.dest-card-sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
+.dest-card-sub2{font-size:11px;color:var(--warning);margin-top:1px;font-weight:600;}
+
+.two-col{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:start;}
+@media(max-width:960px){.two-col{grid-template-columns:1fr;}}
+
+.export-menu-wrap{position:relative;display:inline-block;}
+.export-menu{
+  position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border);
+  border-radius:9px;box-shadow:0 14px 32px -10px rgba(0,0,0,0.25);min-width:170px;overflow:hidden;z-index:20;
+}
+.export-menu button{
+  display:block;width:100%;text-align:left;padding:10px 14px;background:none;border:none;font-size:13px;font-weight:500;
+}
+.export-menu button:hover{background:var(--surface-2);}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--text-dim);}
+.empty-state svg{width:46px;height:46px;margin-bottom:10px;opacity:0.5;}
+.empty-state h4{margin:0 0 4px;color:var(--text);font-family:var(--font-display);}
+.empty-state p{margin:0;font-size:13px;}
+
+@media(max-width:760px){
+  .shell{flex-direction:column;}
+  .sidebar{width:100%;height:auto;position:relative;flex-direction:row;flex-wrap:wrap;padding:12px;}
+  .sb-brand{display:none;}
+  .sb-footer{display:none;}
+  .main{padding:18px;}
+  .form-row{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================================================================
+   SealTrack — GPS Truck Lock Tracker
+   Single-file HTML/JS app. Data persisted via window.storage (shared=true)
+   so it syncs across everyone who opens this artifact.
+   ========================================================================= */
+
+/* ---------------- Icons (inline SVG strings) ---------------- */
+const ICONS = {
+  seal: `<svg class="seal-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="20" cy="20" r="18" stroke="#E28F35" stroke-width="2.6"/>
+    <circle cx="20" cy="20" r="12.5" stroke="#E28F35" stroke-width="1.4" stroke-dasharray="2 3"/>
+    <path d="M14 19V16.5C14 13.46 16.24 11 19.5 11C22.4 11 24.8 13.05 25.3 15.7" stroke="#E28F35" stroke-width="2.2" stroke-linecap="round"/>
+    <rect x="13.5" y="19" width="12" height="9.5" rx="2" fill="#E28F35"/>
+  </svg>`,
+  dash: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 13h6V4H4v9zM14 20h6V4h-6v16zM4 20h6v-4H4v4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  lock: `<svg viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 018 0v3" stroke="currentColor" stroke-width="1.8"/></svg>`,
+  route: `<svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.4" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="18" r="2.4" stroke="currentColor" stroke-width="1.8"/><path d="M8 7c3 0 2 6 5 6h3" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2.5"/></svg>`,
+  users: `<svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 20c.7-3.6 3-5.5 5.5-5.5s4.8 1.9 5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15.5 5.5c1.6.3 2.8 1.7 2.8 3.4 0 1.7-1.2 3.1-2.8 3.4M17.5 14.7c2 .5 3.4 2.2 4 4.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  logout: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  empty: `<svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`
+};
+
+/* ---------------- State ---------------- */
+let state = {
+  users: [],
+  locks: [],
+  routes: [],
+  currentUser: null,
+  loading: true,
+  activeTab: 'dashboard',
+  filters: { status:'all', destination:'all', agency:'all', search:'' },
+  masterFilters: { search:'' },
+  selected: new Set(),
+  modal: null,
+  exportMenuOpen: null,
+  toasts: [],
+  loginError: '',
+  dashboardStatusFilter: 'all',
+  dashboardDestFilter: null
+};
+
+/* ---------------- Storage helpers ----------------
+   Prefers window.storage (syncs across everyone using this file inside
+   Claude's artifact panel). If that API isn't present — e.g. the file was
+   downloaded and opened directly in a browser, or hosted elsewhere — it
+   falls back to the browser's own localStorage so uploads still survive
+   a refresh or logout/login. localStorage in that fallback case is only
+   local to that one browser, not shared between different computers. */
+const LS_PREFIX = 'sealtrack_';
+const hasCloudStorage = () => (typeof window !== 'undefined' && !!window.storage && typeof window.storage.get === 'function');
+
+async function storageGet(key){
+  if(hasCloudStorage()){
+    try{
+      const r = await window.storage.get(key, true);
+      return r ? JSON.parse(r.value) : null;
+    }catch(e){ return null; } // key not yet created
+  }
+  try{
+    const v = localStorage.getItem(LS_PREFIX + key);
+    return v ? JSON.parse(v) : null;
+  }catch(e){ return null; }
+}
+async function storageSet(key, val){
+  if(hasCloudStorage()){
+    try{
+      await window.storage.set(key, JSON.stringify(val), true);
+      return true;
+    }catch(e){
+      // fall through and try a local backup so the edit isn't lost
+    }
+  }
+  try{
+    localStorage.setItem(LS_PREFIX + key, JSON.stringify(val));
+    return true;
+  }catch(e){
+    pushToast('Could not save changes — your browser storage may be full or blocked.', 'err');
+    return false;
+  }
+}
+
+function genId(prefix){
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+}
+
+function nowStamp(){
+  const d = new Date();
+  return d.toISOString();
+}
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  if(isNaN(d)) return '—';
+  return d.toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) + ' ' + d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ---------------- Init / defaults ---------------- */
+async function initApp(){
+  let users = await storageGet('st:users');
+  if(!users || !Array.isArray(users) || users.length === 0){
+    users = [{ id: genId('u'), username:'admin', password:'admin123', role:'admin', destination:null, createdAt: nowStamp() }];
+    await storageSet('st:users', users);
+  }
+  let locks = await storageGet('st:locks');
+  if(!locks) locks = [];
+  let routes = await storageGet('st:routes');
+  if(!routes) routes = [];
+
+  state.users = users;
+  state.locks = locks;
+  state.routes = routes;
+  state.loading = false;
+  render();
+}
+
+/* ---------------- Toasts ---------------- */
+function pushToast(msg, type){
+  const id = genId('t');
+  state.toasts.push({id, msg, type: type||'ok'});
+  renderToastsOnly();
+  setTimeout(()=>{
+    state.toasts = state.toasts.filter(t=>t.id!==id);
+    renderToastsOnly();
+  }, 3200);
+}
+function renderToastsOnly(){
+  const el = document.getElementById('toastStack');
+  if(!el) return;
+  el.innerHTML = state.toasts.map(t=>`<div class="toast ${t.type==='err'?'err':(t.type==='ok'?'ok':'')}">${escapeHtml(t.msg)}</div>`).join('');
+}
+
+/* ---------------- Utils ---------------- */
+function escapeHtml(s){
+  if(s===null||s===undefined) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function distinctList(arr, key){
+  const set = new Set();
+  arr.forEach(x=>{ if(x[key] && String(x[key]).trim()) set.add(String(x[key]).trim()); });
+  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+}
+function allDestinations(){
+  const set = new Set();
+  state.routes.forEach(r=>r.destination && set.add(r.destination));
+  state.locks.forEach(l=>l.destination && set.add(l.destination));
+  state.users.forEach(u=>u.destination && set.add(u.destination));
+  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+}
+function allAgencies(){
+  const set = new Set();
+  state.routes.forEach(r=>r.agency && set.add(r.agency));
+  state.locks.forEach(l=>l.agency && set.add(l.agency));
+  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+}
+function visibleLocksBase(){
+  // scope by role
+  if(state.currentUser && state.currentUser.role === 'destination'){
+    return state.locks.filter(l => l.destination === state.currentUser.destination);
+  }
+  return state.locks;
+}
+function applyFilters(list){
+  const f = state.filters;
+  return list.filter(l=>{
+    if(f.status !== 'all' && l.status !== f.status) return false;
+    if(f.destination !== 'all' && l.destination !== f.destination) return false;
+    if(f.agency !== 'all' && l.agency !== f.agency) return false;
+    if(f.search){
+      const s = f.search.toLowerCase();
+      const hay = [l.lockNo,l.agency,l.plate,l.origin,l.destination].join(' ').toLowerCase();
+      if(!hay.includes(s)) return false;
+    }
+    return true;
+  });
+}
+
+/* ---------------- Render root ---------------- */
+function render(){
+  const active = document.activeElement;
+  const activeId = active && active.id;
+  const selStart = (active && typeof active.selectionStart === 'number') ? active.selectionStart : null;
+  const selEnd = (active && typeof active.selectionEnd === 'number') ? active.selectionEnd : null;
+
+  const app = document.getElementById('app');
+  if(state.loading){
+    app.innerHTML = `<div class="login-wrap"><div style="color:#fff;font-family:var(--font-display);font-size:15px;">Loading SealTrack…</div></div>`;
+    return;
+  }
+  if(!state.currentUser){
+    app.innerHTML = renderLogin();
+  } else {
+    app.innerHTML = renderShell();
+  }
+  app.insertAdjacentHTML('beforeend', `<div class="toast-stack" id="toastStack">${state.toasts.map(t=>`<div class="toast ${t.type==='err'?'err':''}">${escapeHtml(t.msg)}</div>`).join('')}</div>`);
+
+  if(activeId){
+    const el = document.getElementById(activeId);
+    if(el){
+      el.focus();
+      if(selStart!==null && el.setSelectionRange){
+        try{ el.setSelectionRange(selStart, selEnd); }catch(e){}
+      }
+    }
+  }
+}
+
+/* ---------------- Login screen ---------------- */
+function renderLogin(){
+  return `
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="brand-mark">${ICONS.seal}<span class="brand-name">SealTrack</span></div>
+      <p class="brand-sub">GPS Truck Lock tracking &amp; chain-of-custody</p>
+      ${state.loginError ? `<div class="login-error">${escapeHtml(state.loginError)}</div>` : ''}
+      <form onsubmit="handleLogin(event)">
+        <div class="field">
+          <label for="loginUser">Username</label>
+          <input id="loginUser" name="username" autocomplete="username" required>
+        </div>
+        <div class="field">
+          <label for="loginPass">Password</label>
+          <input id="loginPass" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block login-btn">Log in</button>
+      </form>
+      <div class="login-hint">First time here? Default admin login is <b>admin / admin123</b>. Sign in and change the password from Settings → your account.</div>
+    </div>
+  </div>`;
+}
+
+function handleLogin(e){
+  e.preventDefault();
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const match = state.users.find(x=>x.username.toLowerCase() === u.toLowerCase() && x.password === p);
+  if(!match){
+    state.loginError = 'Incorrect username or password.';
+    render();
+    return;
+  }
+  state.loginError = '';
+  state.currentUser = match;
+  state.activeTab = 'dashboard';
+  state.filters = { status:'all', destination: match.role==='destination'? match.destination : 'all', agency:'all', search:'' };
+  render();
+  pushToast(`Welcome back, ${match.username}.`, 'ok');
+}
+
+function handleLogout(){
+  state.currentUser = null;
+  state.selected = new Set();
+  render();
+}
+
+/* ---------------- Shell (post-login) ---------------- */
+function renderShell(){
+  const isAdmin = state.currentUser.role === 'admin';
+  const tabs = [
+    {id:'dashboard', label:'Dashboard', icon:ICONS.dash},
+    {id:'locks', label: isAdmin ? 'GPS Locks' : 'My GPS Locks', icon:ICONS.lock},
+  ];
+  if(isAdmin) tabs.push({id:'master', label:'Master Data', icon:ICONS.route});
+  if(isAdmin) tabs.push({id:'settings', label:'Users & Settings', icon:ICONS.users});
+  if(!isAdmin) tabs.push({id:'account', label:'My Account', icon:ICONS.users});
+
+  return `
+  <div class="shell">
+    <div class="sidebar">
+      <div class="sb-brand">${ICONS.seal}<span class="sb-brand-text">SealTrack</span></div>
+      ${tabs.map(t=>`
+        <button class="nav-item ${state.activeTab===t.id?'active':''}" onclick="setTab('${t.id}')">${t.icon}<span>${t.label}</span></button>
+      `).join('')}
+      <div class="sb-footer">
+        <div class="sb-user">
+          <b>${escapeHtml(state.currentUser.username)}</b>
+          ${isAdmin ? '<span class="tag-pill tag-admin">Admin</span>' : `<span class="tag-pill tag-dest">${escapeHtml(state.currentUser.destination||'—')}</span>`}
+        </div>
+        <button class="nav-item" onclick="handleLogout()">${ICONS.logout}<span>Log out</span></button>
+      </div>
+    </div>
+    <div class="main">
+      ${renderTab()}
+    </div>
+  </div>`;
+}
+
+function setTab(tab){
+  state.activeTab = tab;
+  state.selected = new Set();
+  state.exportMenuOpen = null;
+  render();
+}
+
+function renderTab(){
+  switch(state.activeTab){
+    case 'dashboard': return renderDashboard();
+    case 'locks': return renderLocksTab();
+    case 'master': return renderMasterTab();
+    case 'settings': return renderSettingsTab();
+    case 'account': return renderAccountTab();
+    default: return renderDashboard();
+  }
+}
+
+/* ---------------- Dashboard ---------------- */
+function renderDashboard(){
+  const isAdmin = state.currentUser.role === 'admin';
+  const scoped = visibleLocksBase();
+  const total = scoped.length;
+  const available = scoped.filter(l=>l.status==='available').length;
+  const assigned = scoped.filter(l=>l.status==='assigned').length;
+  const received = scoped.filter(l=>l.status==='received').length;
+
+  const df = state.dashboardDestFilter;
+
+  let byDest = '';
+  if(isAdmin){
+    const dests = allDestinations();
+    const rows = dests.map(d=>{
+      const dl = state.locks.filter(l=>l.destination===d);
+      return {
+        d,
+        atDestination: dl.filter(l=>l.status==='received').length,
+        inTransit: dl.filter(l=>l.status==='assigned').length
+      };
+    }).filter(r=>r.atDestination>0 || r.inTransit>0).sort((a,b)=> b.atDestination - a.atDestination || a.d.localeCompare(b.d));
+
+    byDest = `
+      <div class="panel">
+        <p class="panel-title">Locks by destination</p>
+        <p class="panel-sub">How many GPS truck locks are currently at each destination (received). Click a destination to filter recent activity.</p>
+        ${rows.length ? `
+        <div class="dest-grid">
+          ${rows.map(r=>`
+            <div class="dest-card ${df===r.d?'is-active':''}" onclick="setDashboardDestFilter(decodeURIComponent('${encodeURIComponent(r.d)}'))" role="button" tabindex="0">
+              <div class="dest-card-name">${escapeHtml(r.d)}</div>
+              <div class="dest-card-value">${r.atDestination}</div>
+              <div class="dest-card-sub">currently on-site</div>
+              <div class="dest-card-sub2">${r.inTransit} in-transit</div>
+            </div>
+          `).join('')}
+        </div>` : `<p class="helper-text">No locks assigned yet.</p>`}
+      </div>`;
+  }
+
+  const sf = state.dashboardStatusFilter;
+  let recentPool = scoped;
+  if(df) recentPool = recentPool.filter(l=>l.destination===df);
+  if(sf !== 'all') recentPool = recentPool.filter(l=>l.status===sf);
+  const dateKeyFor = l => sf==='received' ? l.receivedAt : (sf==='available' ? l.createdAt : (l.assignedAt||l.createdAt));
+  const recent = [...recentPool]
+    .sort((a,b)=> new Date(dateKeyFor(b)||0) - new Date(dateKeyFor(a)||0))
+    .slice(0, 10);
+
+  const statusLabels = {all:'All statuses', available:'Available', assigned:'Assigned / In-transit', received:'Received / Complete'};
+  const dateColLabel = sf==='received' ? 'Received' : (sf==='available' ? 'Added' : 'Assigned');
+  const filterActive = sf!=='all' || !!df;
+  const filterDescParts = [];
+  if(df) filterDescParts.push(`at "${escapeHtml(df)}"`);
+  if(sf!=='all') filterDescParts.push(`status "${escapeHtml(statusLabels[sf])}"`);
+
+  return `
+    <div class="topbar">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-sub">${isAdmin? 'Fleet-wide overview of every GPS truck lock.' : `Overview for ${escapeHtml(state.currentUser.destination||'')}.`}</p>
+      </div>
+    </div>
+    <div class="grid-cards">
+      <div class="stat-card c-total ${sf==='all' && !df?'is-active':''}" onclick="setDashboardFilter('all')" role="button" tabindex="0"><div class="stat-label">Total Locks</div><div class="stat-value">${total}</div></div>
+      <div class="stat-card c-available ${sf==='available' && !df?'is-active':''}" onclick="setDashboardFilter('available')" role="button" tabindex="0"><div class="stat-label">Available</div><div class="stat-value">${available}</div></div>
+      <div class="stat-card c-assigned ${sf==='assigned' && !df?'is-active':''}" onclick="setDashboardFilter('assigned')" role="button" tabindex="0"><div class="stat-label">Assigned / In-transit</div><div class="stat-value">${assigned}</div></div>
+      <div class="stat-card c-received ${sf==='received' && !df?'is-active':''}" onclick="setDashboardFilter('received')" role="button" tabindex="0"><div class="stat-label">Received / Complete</div><div class="stat-value">${received}</div></div>
+    </div>
+    <div class="two-col">
+      <div class="panel">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div>
+            <p class="panel-title">Recent activity ${filterActive ? `— ${filterDescParts.join(', ')}` : ''}</p>
+            <p class="panel-sub">${filterActive ? `Showing locks ${filterDescParts.join(' and ')}.` : 'Most recently assigned locks. Click a card above to filter.'}</p>
+          </div>
+          ${filterActive ? `<button class="btn btn-ghost btn-sm" onclick="setDashboardFilter('all')">Clear filter</button>` : ''}
+        </div>
+        ${recent.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Lock No.</th><th>Status</th><th>Plate</th><th>Route</th><th>${dateColLabel}</th></tr></thead>
+          <tbody>
+            ${recent.map(l=>`
+              <tr>
+                <td class="mono">${escapeHtml(l.lockNo)}</td>
+                <td>${statusBadge(l.status)}</td>
+                <td class="mono">${escapeHtml(l.plate||'—')}</td>
+                <td>${escapeHtml(l.origin||'—')} → ${escapeHtml(l.destination||'—')}</td>
+                <td>${fmtDate(dateKeyFor(l))}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table></div>` : emptyState('No matching activity', filterActive ? 'No locks match this filter yet.' : 'Bulk upload some GPS locks to get started.')}
+      </div>
+      ${byDest}
+    </div>
+  `;
+}
+
+function setDashboardFilter(status){
+  state.dashboardStatusFilter = status;
+  state.dashboardDestFilter = null;
+  render();
+}
+function setDashboardDestFilter(dest){
+  if(state.dashboardDestFilter === dest){
+    state.dashboardDestFilter = null;
+    state.dashboardStatusFilter = 'all';
+  } else {
+    state.dashboardDestFilter = dest;
+    state.dashboardStatusFilter = 'received';
+  }
+  render();
+}
+
+
+function statusBadge(status){
+  if(status==='available') return `<span class="badge badge-available">Available</span>`;
+  if(status==='assigned') return `<span class="badge badge-assigned">In-transit</span>`;
+  if(status==='received') return `<span class="badge badge-received">Received</span>`;
+  return `<span class="badge">${escapeHtml(status)}</span>`;
+}
+function emptyState(title, sub){
+  return `<div class="empty-state">${ICONS.empty}<h4>${escapeHtml(title)}</h4><p>${escapeHtml(sub)}</p></div>`;
+}
+
+/* ---------------- GPS Locks tab ---------------- */
+function renderLocksTab(){
+  const isAdmin = state.currentUser.role === 'admin';
+  const base = visibleLocksBase();
+  const list = applyFilters(base);
+  const dests = isAdmin ? allDestinations() : [state.currentUser.destination];
+  const agencies = allAgencies();
+
+  const selectedLocks = base.filter(l=>state.selected.has(l.id));
+  const canAssign = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status==='available');
+  const canForward = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status==='received');
+  const canMarkReceived = selectedLocks.length>0 && selectedLocks.every(l=>l.status==='assigned') &&
+    (isAdmin || selectedLocks.every(l=>l.destination===state.currentUser.destination));
+  const canUnassign = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status!=='available');
+  const canDelete = isAdmin && selectedLocks.length>0;
+
+  return `
+    <div class="topbar">
+      <div>
+        <h1 class="page-title">${isAdmin?'GPS Locks':'My GPS Locks'}</h1>
+        <p class="page-sub">${isAdmin? 'Upload, assign, and track every lock in the fleet.' : `Locks assigned to ${escapeHtml(state.currentUser.destination||'')}.`}</p>
+      </div>
+      <div class="action-row">
+        ${isAdmin ? `<button class="btn btn-ghost" onclick="openModal('bulkLocks')">＋ Bulk upload locks</button>` : ''}
+        ${renderExportMenu('locks')}
+      </div>
+    </div>
+
+    ${selectedLocks.length>0 ? `
+      <div class="panel" style="padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:600;">${selectedLocks.length} selected</span>
+        ${canAssign ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign')">Assign selected</button>` : ''}
+        ${canForward ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign')">Forward to next destination</button>` : ''}
+        ${canMarkReceived ? `<button class="btn btn-success btn-sm" onclick="bulkMarkReceived()">Mark received</button>` : ''}
+        ${canUnassign ? `<button class="btn btn-ghost btn-sm" onclick="bulkUnassign()">Return to available</button>` : ''}
+        ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="bulkDeleteLocks()">Delete</button>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="clearSelection()">Clear</button>
+      </div>` : ''}
+
+    <div class="panel">
+      <div class="table-toolbar">
+        <div class="grow">
+          <input id="lockSearch" class="search-input" placeholder="Search lock no, plate, agency…" value="${escapeHtml(state.filters.search)}" oninput="updateFilter('search', this.value)">
+        </div>
+        <select class="filter-select" onchange="updateFilter('status', this.value)">
+          <option value="all" ${state.filters.status==='all'?'selected':''}>All statuses</option>
+          <option value="available" ${state.filters.status==='available'?'selected':''}>Available</option>
+          <option value="assigned" ${state.filters.status==='assigned'?'selected':''}>In-transit</option>
+          <option value="received" ${state.filters.status==='received'?'selected':''}>Received</option>
+        </select>
+        ${isAdmin ? `
+        <select class="filter-select" onchange="updateFilter('destination', this.value)">
+          <option value="all" ${state.filters.destination==='all'?'selected':''}>All destinations</option>
+          ${dests.map(d=>`<option value="${escapeHtml(d)}" ${state.filters.destination===d?'selected':''}>${escapeHtml(d)}</option>`).join('')}
+        </select>
+        <select class="filter-select" onchange="updateFilter('agency', this.value)">
+          <option value="all" ${state.filters.agency==='all'?'selected':''}>All agencies</option>
+          ${agencies.map(a=>`<option value="${escapeHtml(a)}" ${state.filters.agency===a?'selected':''}>${escapeHtml(a)}</option>`).join('')}
+        </select>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="resetFilters()">Clear filters</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" class="row-check" onchange="toggleSelectAll(this, ${JSON.stringify(list.map(l=>l.id)).replace(/"/g,'&quot;')})" ${list.length>0 && list.every(l=>state.selected.has(l.id))?'checked':''}></th>
+              <th>Lock No.</th>
+              <th>Status</th>
+              <th>Agency</th>
+              <th>Plate No.</th>
+              <th>Origin</th>
+              <th>Destination</th>
+              <th>Assigned</th>
+              <th>Received</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.length===0 ? `<tr class="empty-row"><td colspan="10">${emptyState('No GPS locks found', isAdmin? 'Bulk upload a list of locks to begin tracking.' : 'No locks have been assigned to your destination yet.')}</td></tr>` : list.map(l=>`
+              <tr>
+                <td><input type="checkbox" class="row-check" ${state.selected.has(l.id)?'checked':''} onchange="toggleSelect('${l.id}', this.checked)"></td>
+                <td class="mono">${escapeHtml(l.lockNo)}</td>
+                <td>${statusBadge(l.status)}</td>
+                <td>${escapeHtml(l.agency||'—')}</td>
+                <td class="mono">${escapeHtml(l.plate||'—')}</td>
+                <td>${escapeHtml(l.origin||'—')}</td>
+                <td>${escapeHtml(l.destination||'—')}</td>
+                <td>${l.assignedAt?fmtDate(l.assignedAt):'—'}</td>
+                <td>${l.receivedAt?fmtDate(l.receivedAt):'—'}</td>
+                <td>
+                  <div class="action-row">
+                    ${isAdmin && l.status==='available' ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign', ['${l.id}'])">Assign</button>` : ''}
+                    ${isAdmin && l.status==='received' ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign', ['${l.id}'])">Forward</button>` : ''}
+                    ${l.status==='assigned' && (isAdmin || l.destination===state.currentUser.destination) ? `<button class="btn btn-success btn-sm" onclick="markReceived('${l.id}')">Mark received</button>` : ''}
+                    ${isAdmin && l.status!=='available' ? `<button class="btn btn-ghost btn-sm" onclick="unassignLock('${l.id}')">Return</button>` : ''}
+                    ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openModal('editLock', ['${l.id}'])">Edit</button>` : ''}
+                    ${isAdmin ? `<button class="btn btn-danger btn-sm" onclick="deleteLock('${l.id}')">Delete</button>` : ''}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${state.modal ? renderModal() : ''}
+  `;
+}
+
+function renderExportMenu(scope){
+  const open = state.exportMenuOpen === scope;
+  return `
+    <div class="export-menu-wrap">
+      <button class="btn btn-primary" onclick="toggleExportMenu('${scope}')">⬇ Download ${open?'▲':'▼'}</button>
+      ${open ? `
+      <div class="export-menu">
+        <button onclick="exportData('${scope}','xlsx')">Download as .xlsx</button>
+        <button onclick="exportData('${scope}','csv')">Download as .csv</button>
+      </div>` : ''}
+    </div>`;
+}
+function toggleExportMenu(scope){
+  state.exportMenuOpen = state.exportMenuOpen===scope ? null : scope;
+  render();
+}
+
+/* ---------------- Filters / selection ---------------- */
+function updateFilter(key, val){
+  state.filters[key] = val;
+  render();
+}
+function resetFilters(){
+  state.filters = { status:'all', destination: state.currentUser.role==='destination'? state.currentUser.destination : 'all', agency:'all', search:'' };
+  render();
+}
+function toggleSelect(id, checked){
+  if(checked) state.selected.add(id); else state.selected.delete(id);
+  render();
+}
+function toggleSelectAll(cb, ids){
+  if(cb.checked) ids.forEach(id=>state.selected.add(id));
+  else ids.forEach(id=>state.selected.delete(id));
+  render();
+}
+function clearSelection(){ state.selected = new Set(); render(); }
+
+/* ---------------- Lock actions ---------------- */
+async function markReceived(id){
+  const lock = state.locks.find(l=>l.id===id);
+  if(!lock) return;
+  lock.status = 'received';
+  lock.receivedAt = nowStamp();
+  await storageSet('st:locks', state.locks);
+  pushToast(`Lock ${lock.lockNo} marked as received.`, 'ok');
+  render();
+}
+async function bulkMarkReceived(){
+  let n=0;
+  state.locks.forEach(l=>{
+    if(state.selected.has(l.id) && l.status==='assigned'){
+      l.status='received'; l.receivedAt = nowStamp(); n++;
+    }
+  });
+  await storageSet('st:locks', state.locks);
+  state.selected = new Set();
+  pushToast(`${n} lock(s) marked as received.`, 'ok');
+  render();
+}
+async function unassignLock(id){
+  const lock = state.locks.find(l=>l.id===id);
+  if(!lock) return;
+  if(!confirm(`Return lock ${lock.lockNo} to Available? This clears its assignment.`)) return;
+  Object.assign(lock, {status:'available', agency:'', plate:'', origin:'', destination:'', assignedAt:null, receivedAt:null});
+  await storageSet('st:locks', state.locks);
+  pushToast(`Lock ${lock.lockNo} returned to available.`, 'ok');
+  render();
+}
+async function bulkUnassign(){
+  if(!confirm(`Return ${state.selected.size} lock(s) to Available?`)) return;
+  state.locks.forEach(l=>{
+    if(state.selected.has(l.id)){
+      Object.assign(l, {status:'available', agency:'', plate:'', origin:'', destination:'', assignedAt:null, receivedAt:null});
+    }
+  });
+  await storageSet('st:locks', state.locks);
+  state.selected = new Set();
+  pushToast('Selected locks returned to available.', 'ok');
+  render();
+}
+async function deleteLock(id){
+  const lock = state.locks.find(l=>l.id===id);
+  if(!lock) return;
+  if(!confirm(`Delete lock ${lock.lockNo} permanently?`)) return;
+  state.locks = state.locks.filter(l=>l.id!==id);
+  await storageSet('st:locks', state.locks);
+  pushToast('Lock deleted.', 'ok');
+  render();
+}
+async function bulkDeleteLocks(){
+  if(!confirm(`Delete ${state.selected.size} lock(s) permanently?`)) return;
+  state.locks = state.locks.filter(l=>!state.selected.has(l.id));
+  await storageSet('st:locks', state.locks);
+  state.selected = new Set();
+  pushToast('Selected locks deleted.', 'ok');
+  render();
+}
+
+/* ---------------- Modal system ---------------- */
+function openModal(type, ids){
+  state.modal = { type, ids: ids || Array.from(state.selected) };
+  render();
+}
+function closeModal(){
+  state.modal = null;
+  render();
+}
+
+function renderModal(){
+  const m = state.modal;
+  if(m.type === 'bulkLocks') return modalBulkLocks();
+  if(m.type === 'assign') return modalAssign(m.ids);
+  if(m.type === 'editLock') return modalEditLock(m.ids[0]);
+  if(m.type === 'bulkRoutes') return modalBulkRoutes();
+  if(m.type === 'addRoute') return modalAddRoute();
+  if(m.type === 'editRoute') return modalEditRoute(m.ids[0]);
+  if(m.type === 'addUser') return modalAddUser();
+  if(m.type === 'editUser') return modalEditUser(m.ids[0]);
+  return '';
+}
+
+function modalShell(title, sub, body, footer){
+  return `
+  <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div><p class="modal-title">${title}</p>${sub?`<p class="modal-sub">${sub}</p>`:''}</div>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">${body}</div>
+      <div class="modal-footer">${footer}</div>
+    </div>
+  </div>`;
+}
+
+/* --- Bulk upload locks --- */
+function modalBulkLocks(){
+  const body = `
+    <div class="upload-drop">
+      <div style="font-size:13.5px;font-weight:600;">Upload a file (.xlsx, .xls or .csv)</div>
+      <div class="helper-text">We'll look for a column named "Lock No", "GPS Lock No", "Lock Number" or "Serial No" — or just use the first column.</div>
+      <input type="file" id="bulkLockFile" accept=".xlsx,.xls,.csv">
+    </div>
+    <div class="divider-or">or paste a list</div>
+    <div class="field">
+      <label for="bulkLockText">One lock number per line</label>
+      <textarea id="bulkLockText" rows="5" placeholder="GPS-000123&#10;GPS-000124&#10;GPS-000125"></textarea>
+    </div>
+    <div id="bulkLockPreview"></div>
+  `;
+  const footer = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-accent" onclick="submitBulkLocks()">Upload locks</button>
+  `;
+  return modalShell('Bulk upload GPS locks', 'Add many locks at once as "Available" stock.', body, footer);
+}
+
+async function submitBulkLocks(){
+  const fileInput = document.getElementById('bulkLockFile');
+  const text = document.getElementById('bulkLockText').value;
+  let numbers = [];
+
+  if(fileInput && fileInput.files && fileInput.files[0]){
+    try{
+      numbers = await extractLockNumbersFromFile(fileInput.files[0]);
+    }catch(e){
+      pushToast('Could not read that file. Please check the format.', 'err');
+      return;
+    }
+  }
+  if(text.trim()){
+    text.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean).forEach(n=>numbers.push(n));
+  }
+  numbers = Array.from(new Set(numbers.map(n=>n.trim()).filter(Boolean)));
+
+  if(numbers.length===0){
+    pushToast('No lock numbers found to upload.', 'err');
+    return;
+  }
+  const existing = new Set(state.locks.map(l=>l.lockNo.toLowerCase()));
+  let added=0, skipped=0;
+  numbers.forEach(n=>{
+    if(existing.has(n.toLowerCase())){ skipped++; return; }
+    state.locks.push({
+      id: genId('lk'), lockNo: n, status:'available',
+      agency:'', plate:'', origin:'', destination:'',
+      assignedAt:null, receivedAt:null, createdAt: nowStamp()
+    });
+    existing.add(n.toLowerCase());
+    added++;
+  });
+  await storageSet('st:locks', state.locks);
+  closeModal();
+  pushToast(`${added} lock(s) added.${skipped? ' '+skipped+' duplicate(s) skipped.':''}`, 'ok');
+}
+
+function extractLockNumbersFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+        if(rows.length===0){ resolve([]); return; }
+        const headerKeys = Object.keys(rows[0]);
+        const candidates = ['lock no','lock number','gps lock no','gps lock number','gps truck lock','serial no','serial number','lock','id'];
+        let col = headerKeys.find(h => candidates.includes(String(h).trim().toLowerCase()));
+        if(!col) col = headerKeys[0];
+        const vals = rows.map(r=>String(r[col]||'').trim()).filter(Boolean);
+        resolve(vals);
+      }catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/* --- Assign modal --- */
+function commonFieldValue(locks, field){
+  if(locks.length===0) return '';
+  const first = locks[0][field] || '';
+  return locks.every(l=>(l[field]||'')===first) ? first : '';
+}
+function modalAssign(ids){
+  const locks = state.locks.filter(l=>ids.includes(l.id));
+  const isForward = locks.length>0 && locks.every(l=>l.status==='received');
+  const prefillOrigin = isForward ? commonFieldValue(locks, 'destination') : '';
+  const prefillAgency = isForward ? commonFieldValue(locks, 'agency') : '';
+  const prefillPlate = isForward ? commonFieldValue(locks, 'plate') : '';
+  const routeOptions = state.routes.map(r=>`<option value="${r.id}">${escapeHtml(r.agency)} — ${escapeHtml(r.plate)} (${escapeHtml(r.origin)} → ${escapeHtml(r.destination)})</option>`).join('');
+  const body = `
+    <p class="helper-text" style="margin-bottom:10px;">${isForward ? 'Forwarding' : 'Assigning'} ${locks.length} lock(s):</p>
+    <div class="chip-list">${locks.map(l=>`<span class="chip">${escapeHtml(l.lockNo)}</span>`).join('')}</div>
+    ${isForward ? `<p class="helper-text" style="margin-top:8px;">These locks already arrived — their current destination becomes the new origin below. Pick where they're headed next.</p>` : ''}
+
+    ${state.routes.length ? `
+    <div class="field" style="margin-top:16px;">
+      <label for="assignRouteSelect">Quick-fill from master list (optional)</label>
+      <select id="assignRouteSelect" onchange="fillFromRoute(this.value)">
+        <option value="">— Select a saved route —</option>
+        ${routeOptions}
+      </select>
+    </div>` : ''}
+
+    <div class="form-row" style="margin-top:12px;">
+      <div class="field">
+        <label for="assignAgency">Agency</label>
+        <input id="assignAgency" list="agencyList" placeholder="e.g. Metro Freight" value="${escapeHtml(prefillAgency)}">
+        <datalist id="agencyList">${allAgencies().map(a=>`<option value="${escapeHtml(a)}">`).join('')}</datalist>
+      </div>
+      <div class="field">
+        <label for="assignPlate">Truck plate no.</label>
+        <input id="assignPlate" list="plateList" placeholder="e.g. NGT-4521" value="${escapeHtml(prefillPlate)}">
+        <datalist id="plateList">${distinctList(state.routes,'plate').map(p=>`<option value="${escapeHtml(p)}">`).join('')}</datalist>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="assignOrigin">Origin${isForward ? ' (auto-filled from current destination)' : ''}</label>
+        <input id="assignOrigin" list="originList" placeholder="e.g. Manila Port" value="${escapeHtml(prefillOrigin)}">
+        <datalist id="originList">${distinctList(state.routes,'origin').map(o=>`<option value="${escapeHtml(o)}">`).join('')}</datalist>
+      </div>
+      <div class="field">
+        <label for="assignDestination">Next destination</label>
+        <input id="assignDestination" list="destList" placeholder="e.g. Cebu Warehouse">
+        <datalist id="destList">${allDestinations().map(d=>`<option value="${escapeHtml(d)}">`).join('')}</datalist>
+      </div>
+    </div>
+  `;
+  const footer = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-accent" onclick="submitAssign([${ids.map(id=>"'"+id+"'").join(',')}])">${isForward ? 'Forward' : 'Assign'}</button>
+  `;
+  return modalShell(isForward ? 'Forward to next destination' : 'Assign GPS lock', isForward ? 'This lock already arrived — send it to its next stop.' : 'Tag agency, plate, origin and destination.', body, footer);
+}
+
+function fillFromRoute(routeId){
+  const r = state.routes.find(x=>x.id===routeId);
+  if(!r) return;
+  document.getElementById('assignAgency').value = r.agency||'';
+  document.getElementById('assignPlate').value = r.plate||'';
+  document.getElementById('assignOrigin').value = r.origin||'';
+  document.getElementById('assignDestination').value = r.destination||'';
+}
+
+async function submitAssign(ids){
+  const agency = document.getElementById('assignAgency').value.trim();
+  const plate = document.getElementById('assignPlate').value.trim();
+  const origin = document.getElementById('assignOrigin').value.trim();
+  const destination = document.getElementById('assignDestination').value.trim();
+  if(!agency || !plate || !origin || !destination){
+    pushToast('Please fill in agency, plate, origin and destination.', 'err');
+    return;
+  }
+  const stamp = nowStamp();
+  state.locks.forEach(l=>{
+    if(ids.includes(l.id)){
+      Object.assign(l, {agency, plate, origin, destination, status:'assigned', assignedAt: stamp, receivedAt:null});
+    }
+  });
+  await storageSet('st:locks', state.locks);
+  state.selected = new Set();
+  closeModal();
+  pushToast(`${ids.length} lock(s) assigned to ${destination}.`, 'ok');
+}
+
+/* --- Edit lock modal --- */
+function modalEditLock(id){
+  const l = state.locks.find(x=>x.id===id);
+  if(!l) return '';
+  const body = `
+    <div class="field"><label>Lock number</label><input id="editLockNo" value="${escapeHtml(l.lockNo)}"></div>
+    <div class="form-row">
+      <div class="field"><label>Status</label>
+        <select id="editStatus">
+          <option value="available" ${l.status==='available'?'selected':''}>Available</option>
+          <option value="assigned" ${l.status==='assigned'?'selected':''}>In-transit</option>
+          <option value="received" ${l.status==='received'?'selected':''}>Received</option>
+        </select>
+      </div>
+      <div class="field"><label>Agency</label><input id="editAgency" value="${escapeHtml(l.agency||'')}"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Plate no.</label><input id="editPlate" value="${escapeHtml(l.plate||'')}"></div>
+      <div class="field"><label>Origin</label><input id="editOrigin" value="${escapeHtml(l.origin||'')}"></div>
+    </div>
+    <div class="field"><label>Destination</label><input id="editDestination" value="${escapeHtml(l.destination||'')}"></div>
+  `;
+  const footer = `
+    <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    <button class="btn btn-accent" onclick="submitEditLock('${id}')">Save changes</button>
+  `;
+  return modalShell('Edit GPS lock', 'GPS-' + escapeHtml(l.lockNo), body, footer);
+}
+async function submitEditLock(id){
+  const l = state.locks.find(x=>x.id===id);
+  if(!l) return;
+  const lockNo = document.getElementById('editLockNo').value.trim();
+  if(!lockNo){ pushToast('Lock number is required.', 'err'); return; }
+  const status = document.getElementById('editStatus').value;
+  l.lockNo = lockNo;
+  l.agency = document.getElementById('editAgency').value.trim();
+  l.plate = document.getElementById('editPlate').value.trim();
+  l.origin = document.getElementById('editOrigin').value.trim();
+  l.destination = document.getElementById('editDestination').value.trim();
+  if(status !== l.status){
+    l.status = status;
+    if(status==='assigned' && !l.assignedAt) l.assignedAt = nowStamp();
+    if(status==='received' && !l.receivedAt) l.receivedAt = nowStamp();
+    if(status==='available'){ l.assignedAt=null; l.receivedAt=null; }
+  }
+  await storageSet('st:locks', state.locks);
+  closeModal();
+  pushToast('Lock updated.', 'ok');
+}
+
+/* ---------------- Master Data tab ---------------- */
+function renderMasterTab(){
+  const list = state.routes.filter(r=>{
+    if(!state.masterFilters.search) return true;
+    const s = state.masterFilters.search.toLowerCase();
+    return [r.agency,r.plate,r.origin,r.destination].join(' ').toLowerCase().includes(s);
+  });
+  return `
+    <div class="topbar">
+      <div>
+        <h1 class="page-title">Master Data</h1>
+        <p class="page-sub">Reference list of agencies, plates, origins and destinations for quick-fill when assigning locks.</p>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-ghost" onclick="openModal('addRoute')">＋ Add route</button>
+        <button class="btn btn-ghost" onclick="openModal('bulkRoutes')">＋ Bulk upload</button>
+        ${renderExportMenu('routes')}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="table-toolbar">
+        <div class="grow">
+          <input id="masterSearch" class="search-input" placeholder="Search agency, plate, origin, destination…" value="${escapeHtml(state.masterFilters.search)}" oninput="updateMasterFilter(this.value)">
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Agency</th><th>Plate No.</th><th>Origin</th><th>Destination</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${list.length===0 ? `<tr class="empty-row"><td colspan="5">${emptyState('No master data yet', 'Bulk upload your agency / plate / route list to speed up assignments.')}</td></tr>` : list.map(r=>`
+              <tr>
+                <td>${escapeHtml(r.agency)}</td>
+                <td class="mono">${escapeHtml(r.plate)}</td>
+                <td>${escapeHtml(r.origin)}</td>
+                <td>${escapeHtml(r.destination)}</td>
+                <td class="action-row">
+                  <button class="btn btn-ghost btn-sm" onclick="openModal('editRoute', ['${r.id}'])">Edit</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteRoute('${r.id}')">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${state.modal ? renderModal() : ''}
+  `;
+}
+function updateMasterFilter(val){ state.masterFilters.search = val; render(); }
+
+function modalAddRoute(){
+  const body = `
+    <div class="form-row">
+      <div class="field"><label>Agency</label><input id="newRouteAgency" placeholder="e.g. Metro Freight"></div>
+      <div class="field"><label>Plate no.</label><input id="newRoutePlate" placeholder="e.g. NGT-4521"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Origin</label><input id="newRouteOrigin" placeholder="e.g. Manila Port"></div>
+      <div class="field"><label>Destination</label><input id="newRouteDestination" placeholder="e.g. Cebu Warehouse"></div>
+    </div>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitAddRoute()">Add route</button>`;
+  return modalShell('Add master route', 'Agency, plate and origin/destination pairing.', body, footer);
+}
+async function submitAddRoute(){
+  const agency = document.getElementById('newRouteAgency').value.trim();
+  const plate = document.getElementById('newRoutePlate').value.trim();
+  const origin = document.getElementById('newRouteOrigin').value.trim();
+  const destination = document.getElementById('newRouteDestination').value.trim();
+  if(!agency||!plate||!origin||!destination){ pushToast('Please fill in all fields.', 'err'); return; }
+  state.routes.push({id: genId('rt'), agency, plate, origin, destination, createdAt: nowStamp()});
+  await storageSet('st:routes', state.routes);
+  closeModal();
+  pushToast('Route added to master data.', 'ok');
+}
+
+function modalEditRoute(id){
+  const r = state.routes.find(x=>x.id===id);
+  if(!r) return '';
+  const body = `
+    <div class="form-row">
+      <div class="field"><label>Agency</label><input id="editRouteAgency" value="${escapeHtml(r.agency)}"></div>
+      <div class="field"><label>Plate no.</label><input id="editRoutePlate" value="${escapeHtml(r.plate)}"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Origin</label><input id="editRouteOrigin" value="${escapeHtml(r.origin)}"></div>
+      <div class="field"><label>Destination</label><input id="editRouteDestination" value="${escapeHtml(r.destination)}"></div>
+    </div>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitEditRoute('${id}')">Save changes</button>`;
+  return modalShell('Edit master route', '', body, footer);
+}
+async function submitEditRoute(id){
+  const r = state.routes.find(x=>x.id===id);
+  if(!r) return;
+  r.agency = document.getElementById('editRouteAgency').value.trim();
+  r.plate = document.getElementById('editRoutePlate').value.trim();
+  r.origin = document.getElementById('editRouteOrigin').value.trim();
+  r.destination = document.getElementById('editRouteDestination').value.trim();
+  await storageSet('st:routes', state.routes);
+  closeModal();
+  pushToast('Route updated.', 'ok');
+}
+async function deleteRoute(id){
+  if(!confirm('Delete this master route entry?')) return;
+  state.routes = state.routes.filter(r=>r.id!==id);
+  await storageSet('st:routes', state.routes);
+  pushToast('Route deleted.', 'ok');
+  render();
+}
+
+/* --- Bulk upload routes --- */
+function modalBulkRoutes(){
+  const body = `
+    <div class="upload-drop">
+      <div style="font-size:13.5px;font-weight:600;">Upload a file (.xlsx, .xls or .csv)</div>
+      <div class="helper-text">Include columns: <b>Agency</b>, <b>Plate</b>, <b>Origin</b>, <b>Destination</b> (header names are flexible).</div>
+      <input type="file" id="bulkRouteFile" accept=".xlsx,.xls,.csv">
+    </div>
+    <button type="button" class="template-link" style="margin-top:12px;" onclick="downloadRouteTemplate()">Download a blank template (.xlsx)</button>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitBulkRoutes()">Upload list</button>`;
+  return modalShell('Bulk upload agency / plate / route list', 'Add many agency-plate-route entries at once.', body, footer);
+}
+function downloadRouteTemplate(){
+  const ws = XLSX.utils.json_to_sheet([{Agency:'', Plate:'', Origin:'', Destination:''}]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  XLSX.writeFile(wb, 'sealtrack_route_template.xlsx');
+}
+async function submitBulkRoutes(){
+  const fileInput = document.getElementById('bulkRouteFile');
+  if(!fileInput.files || !fileInput.files[0]){ pushToast('Please choose a file to upload.', 'err'); return; }
+  try{
+    const rows = await extractRowsFromFile(fileInput.files[0]);
+    if(rows.length===0){ pushToast('No rows found in that file.', 'err'); return; }
+    const headerMap = mapHeaders(Object.keys(rows[0]), {
+      agency:['agency','agency name'],
+      plate:['plate','plate no','plate number','truck plate','plate #'],
+      origin:['origin','from','origin point'],
+      destination:['destination','to','dest']
+    });
+    let added=0;
+    rows.forEach(row=>{
+      const agency = String(row[headerMap.agency]||'').trim();
+      const plate = String(row[headerMap.plate]||'').trim();
+      const origin = String(row[headerMap.origin]||'').trim();
+      const destination = String(row[headerMap.destination]||'').trim();
+      if(!agency && !plate && !origin && !destination) return;
+      state.routes.push({id: genId('rt'), agency, plate, origin, destination, createdAt: nowStamp()});
+      added++;
+    });
+    await storageSet('st:routes', state.routes);
+    closeModal();
+    pushToast(`${added} route(s) added to master data.`, 'ok');
+  }catch(e){
+    pushToast('Could not read that file. Please check the format.', 'err');
+  }
+}
+function mapHeaders(headers, wanted){
+  const lower = headers.map(h=>String(h).trim().toLowerCase());
+  const result = {};
+  Object.keys(wanted).forEach(key=>{
+    let idx = -1;
+    for(const cand of wanted[key]){
+      idx = lower.indexOf(cand);
+      if(idx>-1) break;
+    }
+    result[key] = idx>-1 ? headers[idx] : headers[0];
+  });
+  return result;
+}
+function extractRowsFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      try{
+        const wb = XLSX.read(e.target.result, {type:'array'});
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        resolve(XLSX.utils.sheet_to_json(sheet, {defval:''}));
+      }catch(err){ reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/* ---------------- Settings / Users tab (admin) ---------------- */
+function renderSettingsTab(){
+  const dests = allDestinations();
+  return `
+    <div class="topbar">
+      <div>
+        <h1 class="page-title">Users &amp; Settings</h1>
+        <p class="page-sub">Create per-destination logins so each site only sees its own GPS locks.</p>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-accent" onclick="openModal('addUser')">＋ New user</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="panel-title">Accounts</p>
+      <p class="panel-sub">Admins see everything. Destination accounts only see locks assigned to their destination.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Username</th><th>Role</th><th>Destination</th><th>Created</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${state.users.map(u=>`
+              <tr>
+                <td><b>${escapeHtml(u.username)}</b>${u.id===state.currentUser.id?' <span class="helper-text">(you)</span>':''}</td>
+                <td>${u.role==='admin'?'<span class="tag-pill tag-admin" style="color:var(--accent-dark);background:var(--accent-bg);">Admin</span>':'<span class="tag-pill" style="background:var(--slate-bg);color:var(--slate);">Destination</span>'}</td>
+                <td>${escapeHtml(u.destination||'—')}</td>
+                <td>${u.createdAt?fmtDate(u.createdAt):'—'}</td>
+                <td class="action-row">
+                  <button class="btn btn-ghost btn-sm" onclick="openModal('editUser', ['${u.id}'])">Edit</button>
+                  ${u.id!==state.currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">Delete</button>` : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="panel-title">Known destinations</p>
+      <p class="panel-sub">Pulled automatically from your master data and lock assignments.</p>
+      <div class="chip-list">${dests.length? dests.map(d=>`<span class="chip">${escapeHtml(d)}</span>`).join('') : '<span class="helper-text">No destinations recorded yet.</span>'}</div>
+    </div>
+
+    ${renderMyAccountPanel()}
+    ${state.modal ? renderModal() : ''}
+  `;
+}
+
+function renderMyAccountPanel(){
+  return `
+    <div class="panel">
+      <p class="panel-title">Your account</p>
+      <p class="panel-sub">Change your own password.</p>
+      <div class="form-row" style="max-width:480px;">
+        <div class="field"><label for="myNewPass">New password</label><input id="myNewPass" type="password" placeholder="••••••••"></div>
+        <div class="field"><label for="myNewPass2">Confirm password</label><input id="myNewPass2" type="password" placeholder="••••••••"></div>
+      </div>
+      <button class="btn btn-primary" onclick="changeOwnPassword()">Update password</button>
+    </div>
+  `;
+}
+async function changeOwnPassword(){
+  const p1 = document.getElementById('myNewPass').value;
+  const p2 = document.getElementById('myNewPass2').value;
+  if(!p1 || p1.length<4){ pushToast('Password should be at least 4 characters.', 'err'); return; }
+  if(p1!==p2){ pushToast('Passwords do not match.', 'err'); return; }
+  const u = state.users.find(x=>x.id===state.currentUser.id);
+  u.password = p1;
+  state.currentUser = u;
+  await storageSet('st:users', state.users);
+  pushToast('Password updated.', 'ok');
+  render();
+}
+
+function renderAccountTab(){
+  return `
+    <div class="topbar">
+      <div>
+        <h1 class="page-title">My Account</h1>
+        <p class="page-sub">Signed in as ${escapeHtml(state.currentUser.username)} · ${escapeHtml(state.currentUser.destination||'')}</p>
+      </div>
+    </div>
+    ${renderMyAccountPanel()}
+  `;
+}
+
+function modalAddUser(){
+  const dests = allDestinations();
+  const body = `
+    <div class="form-row">
+      <div class="field"><label>Username</label><input id="newUserName" placeholder="e.g. cebu.warehouse"></div>
+      <div class="field"><label>Password</label><input id="newUserPass" type="password" placeholder="min. 4 characters"></div>
+    </div>
+    <div class="field">
+      <label>Role</label>
+      <select id="newUserRole" onchange="toggleDestField(this.value,'newUserDestWrap')">
+        <option value="destination">Destination staff</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="field" id="newUserDestWrap">
+      <label>Destination</label>
+      <input id="newUserDest" list="userDestList" placeholder="e.g. Cebu Warehouse">
+      <datalist id="userDestList">${dests.map(d=>`<option value="${escapeHtml(d)}">`).join('')}</datalist>
+      <div class="helper-text">This account will only see GPS locks assigned to this destination.</div>
+    </div>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitAddUser()">Create user</button>`;
+  return modalShell('Create new user', 'Give a destination its own login.', body, footer);
+}
+function toggleDestField(role, wrapId){
+  const el = document.getElementById(wrapId);
+  if(el) el.style.display = role==='admin' ? 'none' : 'block';
+}
+async function submitAddUser(){
+  const username = document.getElementById('newUserName').value.trim();
+  const password = document.getElementById('newUserPass').value;
+  const role = document.getElementById('newUserRole').value;
+  const destination = role==='destination' ? document.getElementById('newUserDest').value.trim() : null;
+  if(!username || password.length<4){ pushToast('Username required and password should be at least 4 characters.', 'err'); return; }
+  if(state.users.some(u=>u.username.toLowerCase()===username.toLowerCase())){ pushToast('That username already exists.', 'err'); return; }
+  if(role==='destination' && !destination){ pushToast('Please specify a destination for this account.', 'err'); return; }
+  state.users.push({id: genId('u'), username, password, role, destination, createdAt: nowStamp()});
+  await storageSet('st:users', state.users);
+  closeModal();
+  pushToast(`User "${username}" created.`, 'ok');
+}
+
+function modalEditUser(id){
+  const u = state.users.find(x=>x.id===id);
+  if(!u) return '';
+  const dests = allDestinations();
+  const body = `
+    <div class="field"><label>Username</label><input id="editUserName" value="${escapeHtml(u.username)}" disabled style="opacity:0.6;"></div>
+    <div class="form-row">
+      <div class="field">
+        <label>Role</label>
+        <select id="editUserRole" onchange="toggleDestField(this.value,'editUserDestWrap')">
+          <option value="destination" ${u.role==='destination'?'selected':''}>Destination staff</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        </select>
+      </div>
+      <div class="field"><label>Reset password</label><input id="editUserPass" type="password" placeholder="leave blank to keep current"></div>
+    </div>
+    <div class="field" id="editUserDestWrap" style="display:${u.role==='admin'?'none':'block'};">
+      <label>Destination</label>
+      <input id="editUserDest" list="editUserDestList" value="${escapeHtml(u.destination||'')}">
+      <datalist id="editUserDestList">${dests.map(d=>`<option value="${escapeHtml(d)}">`).join('')}</datalist>
+    </div>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitEditUser('${id}')">Save changes</button>`;
+  return modalShell('Edit user', '', body, footer);
+}
+async function submitEditUser(id){
+  const u = state.users.find(x=>x.id===id);
+  if(!u) return;
+  const role = document.getElementById('editUserRole').value;
+  const pass = document.getElementById('editUserPass').value;
+  const destination = role==='destination' ? document.getElementById('editUserDest').value.trim() : null;
+  if(role==='destination' && !destination){ pushToast('Please specify a destination.', 'err'); return; }
+  if(role==='admin' && state.users.filter(x=>x.role==='admin').length===1 && u.role==='admin'){
+    // allow, still one admin remains (itself), just proceed
+  }
+  u.role = role;
+  u.destination = destination;
+  if(pass){ if(pass.length<4){ pushToast('Password should be at least 4 characters.', 'err'); return; } u.password = pass; }
+  await storageSet('st:users', state.users);
+  if(u.id===state.currentUser.id) state.currentUser = u;
+  closeModal();
+  pushToast('User updated.', 'ok');
+}
+async function deleteUser(id){
+  const u = state.users.find(x=>x.id===id);
+  if(!u) return;
+  if(u.role==='admin' && state.users.filter(x=>x.role==='admin').length===1){
+    pushToast('You must keep at least one admin account.', 'err');
+    return;
+  }
+  if(!confirm(`Delete user "${u.username}"?`)) return;
+  state.users = state.users.filter(x=>x.id!==id);
+  await storageSet('st:users', state.users);
+  pushToast('User deleted.', 'ok');
+  render();
+}
+
+/* ---------------- Export ---------------- */
+function exportData(scope, format){
+  state.exportMenuOpen = null;
+  let rows = [];
+  let filename = 'sealtrack_export';
+  if(scope === 'locks'){
+    const base = visibleLocksBase();
+    const list = applyFilters(base);
+    rows = list.map(l=>({
+      'Lock No': l.lockNo,
+      'Status': l.status==='available'?'Available':(l.status==='assigned'?'In-transit':'Received'),
+      'Agency': l.agency||'',
+      'Plate No': l.plate||'',
+      'Origin': l.origin||'',
+      'Destination': l.destination||'',
+      'Assigned Date': l.assignedAt ? fmtDate(l.assignedAt) : '',
+      'Received Date': l.receivedAt ? fmtDate(l.receivedAt) : ''
+    }));
+    filename = 'gps_locks_export';
+  } else if(scope === 'routes'){
+    rows = state.routes.map(r=>({Agency:r.agency, Plate:r.plate, Origin:r.origin, Destination:r.destination}));
+    filename = 'master_route_list';
+  }
+  if(rows.length===0){
+    pushToast('Nothing to export yet.', 'err');
+    render();
+    return;
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  if(format==='xlsx'){
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Data');
+    XLSX.writeFile(wb, filename + '.xlsx');
+  } else {
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  pushToast('Export ready — check your downloads.', 'ok');
+  render();
+}
+
+/* ---------------- Boot ---------------- */
+initApp();
+</script>
+</body>
+</html>
