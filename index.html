@@ -254,6 +254,20 @@ tbody tr:hover{background:#FAFBFD;}
 .helper-text{font-size:11.5px;color:var(--text-dim);margin-top:5px;line-height:1.5;}
 .template-link{font-size:12px;color:var(--navy-3);font-weight:600;text-decoration:underline;background:none;border:none;padding:0;}
 
+/* ---------- Allocation ---------- */
+.alloc-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:20px;}
+.alloc-lock-chips{display:flex;flex-wrap:wrap;gap:5px;max-width:420px;}
+.alloc-lock-chips .chip{padding:2px 8px;font-size:11.5px;}
+.chip-more{background:var(--accent-bg);color:var(--accent-dark);border:none;cursor:pointer;border-radius:20px;padding:2px 9px;font-size:11.5px;font-weight:700;}
+.qty-num{font-family:var(--font-mono);font-weight:700;font-size:14px;}
+.bal-ok{color:var(--success);} .bal-low{color:var(--warning);} .bal-over{color:var(--danger);}
+.prog{height:6px;border-radius:4px;background:var(--surface-2);overflow:hidden;margin-top:5px;min-width:90px;}
+.prog>div{height:100%;background:var(--success);}
+.prog.over>div{background:var(--danger);}
+.badge-noquota{background:var(--surface-2);color:var(--text-dim);}
+
+.chip-res{background:#fff !important;border:1px dashed var(--slate);color:var(--slate);}
+
 /* ---------- Toast ---------- */
 .toast-stack{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:8px;}
 .toast{
@@ -340,6 +354,7 @@ const ICONS = {
   route: `<svg viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.4" stroke="currentColor" stroke-width="1.8"/><circle cx="18" cy="18" r="2.4" stroke="currentColor" stroke-width="1.8"/><path d="M8 7c3 0 2 6 5 6h3" stroke="currentColor" stroke-width="1.8" stroke-dasharray="2.5 2.5"/></svg>`,
   users: `<svg viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 20c.7-3.6 3-5.5 5.5-5.5s4.8 1.9 5.5 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M15.5 5.5c1.6.3 2.8 1.7 2.8 3.4 0 1.7-1.2 3.1-2.8 3.4M17.5 14.7c2 .5 3.4 2.2 4 4.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   logout: `<svg viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  alloc: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 7l8-4 8 4-8 4-8-4z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M4 12l8 4 8-4M4 17l8 4 8-4" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
   empty: `<svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`
 };
 
@@ -348,11 +363,13 @@ let state = {
   users: [],
   locks: [],
   routes: [],
+  allocations: [],
   currentUser: null,
   loading: true,
   activeTab: 'dashboard',
   filters: { status:'all', destination:'all', agency:'all', search:'' },
   masterFilters: { search:'' },
+  allocFilters: { search:'', destination:'all' },
   selected: new Set(),
   modal: null,
   exportMenuOpen: null,
@@ -431,6 +448,9 @@ async function initApp(){
 
   state.users = users;
   state.locks = locks;
+  let allocations = await storageGet('st:allocations');
+  if(!allocations || !Array.isArray(allocations)) allocations = [];
+  state.allocations = allocations;
   state.routes = routes;
   state.loading = false;
   render();
@@ -444,7 +464,7 @@ function pushToast(msg, type){
   setTimeout(()=>{
     state.toasts = state.toasts.filter(t=>t.id!==id);
     renderToastsOnly();
-  }, 3200);
+  }, 3200 + (msg.length>90 ? 3800 : 0));
 }
 function renderToastsOnly(){
   const el = document.getElementById('toastStack');
@@ -467,12 +487,14 @@ function allDestinations(){
   state.routes.forEach(r=>r.destination && set.add(r.destination));
   state.locks.forEach(l=>l.destination && set.add(l.destination));
   state.users.forEach(u=>u.destination && set.add(u.destination));
+  state.allocations.forEach(a=>a.destination && set.add(a.destination));
   return Array.from(set).sort((a,b)=>a.localeCompare(b));
 }
 function allAgencies(){
   const set = new Set();
   state.routes.forEach(r=>r.agency && set.add(r.agency));
   state.locks.forEach(l=>l.agency && set.add(l.agency));
+  state.allocations.forEach(a=>a.agency && set.add(a.agency));
   return Array.from(set).sort((a,b)=>a.localeCompare(b));
 }
 function visibleLocksBase(){
@@ -582,6 +604,7 @@ function renderShell(){
     {id:'dashboard', label:'Dashboard', icon:ICONS.dash},
     {id:'locks', label: isAdmin ? 'GPS Locks' : 'My GPS Locks', icon:ICONS.lock},
   ];
+  tabs.push({id:'allocation', label:'Allocation', icon:ICONS.alloc});
   if(isAdmin) tabs.push({id:'master', label:'Master Data', icon:ICONS.route});
   if(isAdmin) tabs.push({id:'settings', label:'Users & Settings', icon:ICONS.users});
   if(!isAdmin) tabs.push({id:'account', label:'My Account', icon:ICONS.users});
@@ -618,6 +641,7 @@ function renderTab(){
   switch(state.activeTab){
     case 'dashboard': return renderDashboard();
     case 'locks': return renderLocksTab();
+    case 'allocation': return renderAllocationTab();
     case 'master': return renderMasterTab();
     case 'settings': return renderSettingsTab();
     case 'account': return renderAccountTab();
@@ -761,7 +785,7 @@ function renderLocksTab(){
 
   const selectedLocks = base.filter(l=>state.selected.has(l.id));
   const canAssign = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status==='available');
-  const canForward = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status==='received');
+  const canForward = false; // reallocation to another destination/agency is blocked by Allocation rules
   const canMarkReceived = selectedLocks.length>0 && selectedLocks.every(l=>l.status==='assigned') &&
     (isAdmin || selectedLocks.every(l=>l.destination===state.currentUser.destination));
   const canUnassign = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status!=='available');
@@ -844,7 +868,6 @@ function renderLocksTab(){
                 <td>
                   <div class="action-row">
                     ${isAdmin && l.status==='available' ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign', ['${l.id}'])">Assign</button>` : ''}
-                    ${isAdmin && l.status==='received' ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign', ['${l.id}'])">Forward</button>` : ''}
                     ${l.status==='assigned' && (isAdmin || l.destination===state.currentUser.destination) ? `<button class="btn btn-success btn-sm" onclick="markReceived('${l.id}')">Mark received</button>` : ''}
                     ${isAdmin && l.status!=='available' ? `<button class="btn btn-ghost btn-sm" onclick="unassignLock('${l.id}')">Return</button>` : ''}
                     ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openModal('editLock', ['${l.id}'])">Edit</button>` : ''}
@@ -977,6 +1000,10 @@ function renderModal(){
   if(m.type === 'bulkRoutes') return modalBulkRoutes();
   if(m.type === 'addRoute') return modalAddRoute();
   if(m.type === 'editRoute') return modalEditRoute(m.ids[0]);
+  if(m.type === 'bulkAlloc') return modalBulkAlloc();
+  if(m.type === 'addAlloc') return modalAddAlloc();
+  if(m.type === 'editAlloc') return modalEditAlloc(m.ids[0]);
+  if(m.type === 'viewAllocLocks') return modalViewAllocLocks(m.ids[0], m.ids[1]);
   if(m.type === 'addUser') return modalAddUser();
   if(m.type === 'editUser') return modalEditUser(m.ids[0]);
   return '';
@@ -1089,7 +1116,10 @@ function modalAssign(ids){
   const locks = state.locks.filter(l=>ids.includes(l.id));
   const isForward = locks.length>0 && locks.every(l=>l.status==='received');
   const prefillOrigin = isForward ? commonFieldValue(locks, 'destination') : '';
-  const prefillAgency = isForward ? commonFieldValue(locks, 'agency') : '';
+  const resvList = locks.map(l=>reservationOf(l.id));
+  const resv = (resvList.length && resvList[0] && resvList.every(r=>r && r.id===resvList[0].id)) ? resvList[0] : null;
+  const prefillAgency = resv ? resv.agency : (isForward ? commonFieldValue(locks, 'agency') : '');
+  const prefillDest = resv ? resv.destination : '';
   const prefillPlate = isForward ? commonFieldValue(locks, 'plate') : '';
   const routeOptions = state.routes.map(r=>`<option value="${r.id}">${escapeHtml(r.agency)} — ${escapeHtml(r.plate)} (${escapeHtml(r.origin)} → ${escapeHtml(r.destination)})</option>`).join('');
   const body = `
@@ -1106,6 +1136,7 @@ function modalAssign(ids){
       </select>
     </div>` : ''}
 
+    ${(()=>{ const bl = allocBalanceList(); return bl.length ? `<div class="helper-text" style="margin-top:12px;padding:10px 12px;background:var(--surface-2);border-radius:8px;"><b>Allocation balance</b> (assignment must match one of these):<br>${bl.map(x=>`${escapeHtml(x.a.agency)} → ${escapeHtml(x.a.destination)}: <b>${Math.max(x.left,0)}</b> left of ${x.a.qty}${x.pending?` (${x.pending} reserved lock no.)`:''}`).join('<br>')}</div>` : `<div class="helper-text" style="margin-top:12px;color:var(--danger);">No allocations set yet. Add allocations in the Allocation tab before assigning locks.</div>`; })()}
     <div class="form-row" style="margin-top:12px;">
       <div class="field">
         <label for="assignAgency">Agency</label>
@@ -1126,7 +1157,7 @@ function modalAssign(ids){
       </div>
       <div class="field">
         <label for="assignDestination">Next destination</label>
-        <input id="assignDestination" list="destList" placeholder="e.g. Cebu Warehouse">
+        <input id="assignDestination" list="destList" placeholder="e.g. Cebu Warehouse" value="${escapeHtml(prefillDest)}">
         <datalist id="destList">${allDestinations().map(d=>`<option value="${escapeHtml(d)}">`).join('')}</datalist>
       </div>
     </div>
@@ -1148,24 +1179,57 @@ function fillFromRoute(routeId){
 }
 
 async function submitAssign(ids){
-  const agency = document.getElementById('assignAgency').value.trim();
+  const agencyIn = document.getElementById('assignAgency').value.trim();
   const plate = document.getElementById('assignPlate').value.trim();
   const origin = document.getElementById('assignOrigin').value.trim();
-  const destination = document.getElementById('assignDestination').value.trim();
-  if(!agency || !plate || !origin || !destination){
+  const destIn = document.getElementById('assignDestination').value.trim();
+  if(!agencyIn || !plate || !origin || !destIn){
     pushToast('Please fill in agency, plate, origin and destination.', 'err');
+    return;
+  }
+  // Locks already allocated cannot be re-allocated elsewhere.
+  const locked = state.locks.filter(l=>ids.includes(l.id) && l.status!=='available');
+  if(locked.length){
+    pushToast(`${locked.length} selected lock(s) are already allocated to a destination/agency and cannot be reallocated. Use Return first.`, 'err');
+    return;
+  }
+  const alloc = findAllocation(destIn, agencyIn);
+  if(!alloc){
+    pushToast(`No allocation exists for ${agencyIn} → ${destIn}. Add one in the Allocation tab first.`, 'err');
+    return;
+  }
+  const used = allocUsedCount(alloc.destination, alloc.agency);
+  const left = alloc.qty - used;
+  if(ids.length > left){
+    pushToast(`Exceeds allocation: ${alloc.agency} → ${alloc.destination} has ${Math.max(left,0)} lock(s) left (${used}/${alloc.qty} used), you selected ${ids.length}.`, 'err');
+    return;
+  }
+  // A lock number listed under another allocation can't go to this one.
+  const sel = state.locks.filter(l=>ids.includes(l.id));
+  const clash = sel.find(l=>{ const r = reservationOf(l.id); return r && r.id!==alloc.id; });
+  if(clash){
+    const r = reservationOf(clash.id);
+    pushToast(`Lock ${clash.lockNo} is allocated to ${r.agency} → ${r.destination} and can't be assigned elsewhere.`, 'err');
+    return;
+  }
+  // Slots reserved for specific lock numbers can't be taken by other locks.
+  const reservedHere = sel.filter(l=>{ const r = reservationOf(l.id); return r && r.id===alloc.id; }).length;
+  const others = ids.length - reservedHere;
+  const freeUnreserved = alloc.qty - used - allocPendingReserved(alloc);
+  if(others > freeUnreserved){
+    pushToast(`Only ${Math.max(freeUnreserved,0)} unreserved slot(s) left in ${alloc.agency} → ${alloc.destination}. The rest are reserved for specific lock numbers listed in the Allocation tab.`, 'err');
     return;
   }
   const stamp = nowStamp();
   state.locks.forEach(l=>{
     if(ids.includes(l.id)){
-      Object.assign(l, {agency, plate, origin, destination, status:'assigned', assignedAt: stamp, receivedAt:null});
+      Object.assign(l, {agency: alloc.agency, plate, origin, destination: alloc.destination, status:'assigned', assignedAt: stamp, receivedAt:null});
     }
   });
   await storageSet('st:locks', state.locks);
   state.selected = new Set();
   closeModal();
-  pushToast(`${ids.length} lock(s) assigned to ${destination}.`, 'ok');
+  pushToast(`${ids.length} lock(s) assigned to ${alloc.agency} → ${alloc.destination} (${used+ids.length}/${alloc.qty}).`, 'ok');
 }
 
 /* --- Edit lock modal --- */
@@ -1176,19 +1240,20 @@ function modalEditLock(id){
     <div class="field"><label>Lock number</label><input id="editLockNo" value="${escapeHtml(l.lockNo)}"></div>
     <div class="form-row">
       <div class="field"><label>Status</label>
-        <select id="editStatus">
+        <select id="editStatus" ${l.status==='available'?'disabled':''}>
           <option value="available" ${l.status==='available'?'selected':''}>Available</option>
           <option value="assigned" ${l.status==='assigned'?'selected':''}>In-transit</option>
           <option value="received" ${l.status==='received'?'selected':''}>Received</option>
         </select>
       </div>
-      <div class="field"><label>Agency</label><input id="editAgency" value="${escapeHtml(l.agency||'')}"></div>
+      <div class="field"><label>Agency</label><input id="editAgency" value="${escapeHtml(l.agency||'')}" disabled></div>
     </div>
     <div class="form-row">
       <div class="field"><label>Plate no.</label><input id="editPlate" value="${escapeHtml(l.plate||'')}"></div>
       <div class="field"><label>Origin</label><input id="editOrigin" value="${escapeHtml(l.origin||'')}"></div>
     </div>
-    <div class="field"><label>Destination</label><input id="editDestination" value="${escapeHtml(l.destination||'')}"></div>
+    <div class="field"><label>Destination</label><input id="editDestination" value="${escapeHtml(l.destination||'')}" disabled></div>
+    <p class="helper-text">Agency and destination are locked by Allocation rules. ${l.status==='available' ? 'Use Assign on the GPS Locks tab to allocate this lock.' : 'To move this lock elsewhere, use Return first, then assign it within an allocation.'}</p>
   `;
   const footer = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -1203,10 +1268,9 @@ async function submitEditLock(id){
   if(!lockNo){ pushToast('Lock number is required.', 'err'); return; }
   const status = document.getElementById('editStatus').value;
   l.lockNo = lockNo;
-  l.agency = document.getElementById('editAgency').value.trim();
   l.plate = document.getElementById('editPlate').value.trim();
   l.origin = document.getElementById('editOrigin').value.trim();
-  l.destination = document.getElementById('editDestination').value.trim();
+  if(l.status==='available'){ l.plate=''; l.origin=''; }
   if(status !== l.status){
     l.status = status;
     if(status==='assigned' && !l.assignedAt) l.assignedAt = nowStamp();
@@ -1614,6 +1678,20 @@ function exportData(scope, format){
     rows = state.routes.map(r=>({Agency:r.agency, Plate:r.plate, Origin:r.origin, Destination:r.destination}));
     filename = 'master_route_list';
   }
+  if(scope === 'allocation'){
+    const out = [];
+    buildAllocationRows().forEach(r=>{
+      out.push({
+        'Destination': r.destination, 'Agency': r.agency,
+        'Lock Qty Allocated': r.qty===null ? '' : r.qty,
+        'Locks Assigned': r.locks.length,
+        'Balance': r.qty===null ? '' : r.qty - r.locks.length,
+        'Lock Numbers': r.all.map(l=>l.lockNo).join(', '),
+        'Reserved (not assigned)': r.reserved.map(l=>l.lockNo).join(', ')
+      });
+    });
+    rows = out; filename = 'allocation_export';
+  }
   if(rows.length===0){
     pushToast('Nothing to export yet.', 'err');
     render();
@@ -1635,6 +1713,391 @@ function exportData(scope, format){
   }
   pushToast('Export ready — check your downloads.', 'ok');
   render();
+}
+
+/* ---------------- Allocation module ---------------- */
+function allocKey(d,a){ return (d||'').trim().toLowerCase() + '||' + (a||'').trim().toLowerCase(); }
+function findAllocation(dest, agency){
+  return state.allocations.find(a=>allocKey(a.destination,a.agency)===allocKey(dest,agency)) || null;
+}
+function lockById(id){ return state.locks.find(l=>l.id===id); }
+function allocLocks(a){ return (a.lockIds||[]).map(lockById).filter(Boolean); }
+function allocUsedCount(dest, agency){
+  const k = allocKey(dest,agency);
+  return state.locks.filter(l=>(l.status==='assigned'||l.status==='received') && allocKey(l.destination,l.agency)===k).length;
+}
+function reservationOf(lockId){ return state.allocations.find(a=>(a.lockIds||[]).includes(lockId)) || null; }
+function allocPendingReserved(a){ return allocLocks(a).filter(l=>l.status==='available').length; }
+function allocBalanceList(){
+  return state.allocations.map(a=>({a, left: a.qty - allocUsedCount(a.destination,a.agency), pending: allocPendingReserved(a)}))
+    .sort((x,y)=>x.a.destination.localeCompare(y.a.destination)||x.a.agency.localeCompare(y.a.agency));
+}
+function parseLockNos(text){
+  const seen = new Set(), out = [];
+  String(text==null?'':text).split(/[\n\r,;\t]+/).map(x=>x.trim()).filter(Boolean).forEach(n=>{
+    const k = n.toLowerCase(); if(!seen.has(k)){ seen.add(k); out.push(n); }
+  });
+  return out;
+}
+// Resolve lock numbers against GPS Locks stock and make sure they can belong to this destination + agency.
+function resolveLockNos(nos, destination, agency, excludeAllocId){
+  const ids = [], errors = [], seen = new Set();
+  const pairKey = allocKey(destination, agency);
+  nos.forEach(no=>{
+    const l = state.locks.find(x=>String(x.lockNo).toLowerCase()===no.toLowerCase());
+    if(!l){ errors.push(`${no}: not found in GPS Locks`); return; }
+    if(seen.has(l.id)) return;
+    seen.add(l.id);
+    if(l.status!=='available' && allocKey(l.destination,l.agency)!==pairKey){
+      errors.push(`${no}: already assigned to ${l.agency} → ${l.destination}`); return;
+    }
+    const r = reservationOf(l.id);
+    if(r && r.id!==excludeAllocId && allocKey(r.destination,r.agency)!==pairKey){
+      errors.push(`${no}: already allocated to ${r.agency} → ${r.destination}`); return;
+    }
+    ids.push(l.id);
+  });
+  return {ids, errors};
+}
+function errSummary(errors){
+  return errors.slice(0,3).join('; ') + (errors.length>3 ? ` (+${errors.length-3} more)` : '');
+}
+
+function buildAllocationRows(){
+  const isAdmin = state.currentUser.role === 'admin';
+  const map = new Map();
+  state.allocations.forEach(a=>{
+    map.set(allocKey(a.destination,a.agency), {allocId:a.id, destination:a.destination, agency:a.agency, qty:a.qty,
+      locks:[], reserved: allocLocks(a).filter(l=>l.status==='available')});
+  });
+  state.locks.forEach(l=>{
+    if(!l.destination || !l.agency) return;
+    if(l.status!=='assigned' && l.status!=='received') return;
+    const k = allocKey(l.destination,l.agency);
+    if(!map.has(k)) map.set(k, {allocId:null, destination:l.destination, agency:l.agency, qty:null, locks:[], reserved:[]});
+    map.get(k).locks.push(l);
+  });
+  let rows = Array.from(map.values());
+  if(!isAdmin) rows = rows.filter(r=>r.destination===state.currentUser.destination);
+  const f = state.allocFilters;
+  if(f.destination!=='all') rows = rows.filter(r=>r.destination===f.destination);
+  const byNo = (a,b)=>a.lockNo.localeCompare(b.lockNo,undefined,{numeric:true});
+  rows.forEach(r=>{ r.locks.sort(byNo); r.reserved.sort(byNo); r.all = [...r.locks, ...r.reserved].sort(byNo); });
+  if(f.search){
+    const q = f.search.toLowerCase();
+    rows = rows.filter(r=>(r.destination+' '+r.agency+' '+r.all.map(l=>l.lockNo).join(' ')).toLowerCase().includes(q));
+  }
+  return rows.sort((a,b)=>a.destination.localeCompare(b.destination) || a.agency.localeCompare(b.agency));
+}
+
+function renderAllocationTab(){
+  const isAdmin = state.currentUser.role === 'admin';
+  const rows = buildAllocationRows();
+  const dests = isAdmin ? allDestinations() : [state.currentUser.destination];
+  const totQty = rows.reduce((n,r)=>n+(r.qty||0),0);
+  const totAssigned = rows.reduce((n,r)=>n+r.locks.length,0);
+  const totReceived = rows.reduce((n,r)=>n+r.locks.filter(l=>l.status==='received').length,0);
+  const totBal = rows.reduce((n,r)=>n+(r.qty!==null ? r.qty - r.locks.length : 0),0);
+  const MAXCHIPS = 6;
+
+  return `
+    <div class="topbar">
+      <div>
+        <h1 class="page-title">Allocation</h1>
+        <p class="page-sub">Lock quantity and lock numbers allocated per destination and agency. Locks can only be assigned within an allocation, can't exceed its quantity, and a lock number listed under one allocation can't go to another destination or agency.</p>
+      </div>
+      <div class="action-row">
+        ${isAdmin ? `<button class="btn btn-accent" onclick="openModal('addAlloc')">＋ Add allocation</button>` : ''}
+        ${isAdmin ? `<button class="btn btn-ghost" onclick="openModal('bulkAlloc')">＋ Bulk upload</button>` : ''}
+        ${renderExportMenu('allocation')}
+      </div>
+    </div>
+    <div class="alloc-sum">
+      <div class="stat-card c-total"><div class="stat-label">Qty Allocated</div><div class="stat-value">${totQty}</div></div>
+      <div class="stat-card c-assigned"><div class="stat-label">Locks Assigned</div><div class="stat-value">${totAssigned}</div></div>
+      <div class="stat-card c-received"><div class="stat-label">Received</div><div class="stat-value">${totReceived}</div></div>
+      <div class="stat-card c-available"><div class="stat-label">Balance</div><div class="stat-value">${totBal}</div></div>
+    </div>
+    <div class="panel">
+      <div class="table-toolbar">
+        <div class="grow"><input id="allocSearch" class="search-input" placeholder="Search destination, agency or lock no…" value="${escapeHtml(state.allocFilters.search)}" oninput="updateAllocFilter('search', this.value)"></div>
+        ${isAdmin ? `<select class="filter-select" onchange="updateAllocFilter('destination', this.value)">
+          <option value="all">All destinations</option>
+          ${dests.map(d=>`<option value="${escapeHtml(d)}" ${state.allocFilters.destination===d?'selected':''}>${escapeHtml(d)}</option>`).join('')}
+        </select>` : ''}
+      </div>
+      <p class="helper-text" style="margin:-4px 0 12px;">Solid lock numbers are assigned (in-transit / received). Dashed ones are reserved for this allocation but not assigned yet.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Destination</th><th>Agency</th><th>Lock Qty Allocated</th><th>Assigned</th><th>Balance</th><th>Lock Numbers</th>${isAdmin?'<th>Actions</th>':''}</tr></thead>
+          <tbody>
+            ${rows.length===0 ? `<tr class="empty-row"><td colspan="${isAdmin?7:6}">${emptyState('No allocations yet', isAdmin ? 'Add an allocation (with lock numbers) or assign locks to a destination and agency.' : 'Nothing is allocated to your destination yet.')}</td></tr>` : rows.map(r=>{
+              const n = r.locks.length;
+              const hasQ = r.qty!==null;
+              const bal = hasQ ? r.qty - n : null;
+              const pct = hasQ && r.qty>0 ? Math.min(100, Math.round(n/r.qty*100)) : (n>0?100:0);
+              const balCls = !hasQ ? '' : (bal<0 ? 'bal-over' : (bal===0 ? 'bal-low' : 'bal-ok'));
+              const dEnc = encodeURIComponent(r.destination), aEnc = encodeURIComponent(r.agency);
+              const total = r.all.length;
+              const viewBtn = `<button class="chip-more" onclick="openModal('viewAllocLocks',[decodeURIComponent('${dEnc}'),decodeURIComponent('${aEnc}')])">${total>MAXCHIPS ? '+'+(total-MAXCHIPS)+' more' : 'View'}</button>`;
+              return `<tr>
+                <td><b>${escapeHtml(r.destination)}</b></td>
+                <td>${escapeHtml(r.agency)}</td>
+                <td>${hasQ ? `<span class="qty-num">${r.qty}</span>` : `<span class="badge badge-noquota">No quota set</span>`}</td>
+                <td><span class="qty-num">${n}</span>${hasQ?`<div class="prog ${bal<0?'over':''}"><div style="width:${pct}%"></div></div>`:''}${r.reserved.length?`<div class="helper-text">${r.reserved.length} reserved</div>`:''}</td>
+                <td>${hasQ ? `<span class="qty-num ${balCls}">${bal}</span>${bal<0?' <span class="helper-text">over</span>':''}` : '—'}</td>
+                <td>${total===0 ? '<span class="helper-text">None listed</span>' : `<div class="alloc-lock-chips">
+                  ${r.all.slice(0,MAXCHIPS).map(l=>{ const res = l.status==='available'; return `<span class="chip ${res?'chip-res':''}" title="${res?'Reserved — not assigned yet':(l.status==='received'?'Received':'In-transit')}">${escapeHtml(l.lockNo)}</span>`; }).join('')}
+                  ${viewBtn}
+                </div>`}</td>
+                ${isAdmin ? `<td class="action-row">
+                  ${r.allocId ? `<button class="btn btn-ghost btn-sm" onclick="openModal('editAlloc',['${r.allocId}'])">Edit</button><button class="btn btn-danger btn-sm" onclick="deleteAlloc('${r.allocId}')">Delete</button>`
+                              : `<button class="btn btn-accent btn-sm" onclick="openModal('addAlloc',[decodeURIComponent('${dEnc}'),decodeURIComponent('${aEnc}')])">Set qty</button>`}
+                </td>` : ''}
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${state.modal ? renderModal() : ''}
+  `;
+}
+function updateAllocFilter(key,val){ state.allocFilters[key]=val; render(); }
+
+/* --- Add / edit allocation (individual) --- */
+function modalAddAlloc(){
+  const preD = (state.modal.ids && state.modal.ids[0]) || '';
+  const preA = (state.modal.ids && state.modal.ids[1]) || '';
+  const body = `
+    <div class="form-row">
+      <div class="field"><label for="allocDest">Destination</label><input id="allocDest" list="allocDestList" placeholder="e.g. Cebu Warehouse" value="${escapeHtml(preD)}"><datalist id="allocDestList">${allDestinations().map(d=>`<option value="${escapeHtml(d)}">`).join('')}</datalist></div>
+      <div class="field"><label for="allocAgency">Agency</label><input id="allocAgency" list="allocAgencyList" placeholder="e.g. Metro Freight" value="${escapeHtml(preA)}"><datalist id="allocAgencyList">${allAgencies().map(a=>`<option value="${escapeHtml(a)}">`).join('')}</datalist></div>
+    </div>
+    <div class="field"><label for="allocQty">Lock Qty Allocated</label><input id="allocQty" type="number" min="0" step="1" placeholder="Leave blank to use the number of lock numbers below"></div>
+    <div class="field"><label for="allocLockNos">Lock numbers</label><textarea id="allocLockNos" rows="5" placeholder="GPS-000123&#10;GPS-000124&#10;(one per line or comma separated)"></textarea>
+      <div class="helper-text">Must already exist as Available in GPS Locks. Added to any lock numbers this destination + agency already has.</div></div>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitAddAlloc()">Save allocation</button>`;
+  return modalShell('Add allocation','Quantity and lock numbers for a destination and agency.', body, footer);
+}
+async function submitAddAlloc(){
+  const destination = document.getElementById('allocDest').value.trim();
+  const agency = document.getElementById('allocAgency').value.trim();
+  const qtyRaw = document.getElementById('allocQty').value.trim();
+  const nos = parseLockNos(document.getElementById('allocLockNos').value);
+  if(!destination || !agency){ pushToast('Enter destination and agency.', 'err'); return; }
+  const ex = findAllocation(destination, agency);
+  const {ids, errors} = resolveLockNos(nos, destination, agency, ex?ex.id:null);
+  if(errors.length){ pushToast('Lock number issue — ' + errSummary(errors), 'err'); return; }
+  const existingIds = ex ? (ex.lockIds||[]).filter(id=>lockById(id)) : [];
+  const merged = Array.from(new Set([...existingIds, ...ids]));
+  let qty;
+  if(qtyRaw===''){
+    if(!ex && merged.length===0){ pushToast('Enter a quantity or at least one lock number.', 'err'); return; }
+    qty = ex ? Math.max(ex.qty, merged.length) : merged.length;
+  } else {
+    qty = Number(qtyRaw);
+    if(!Number.isInteger(qty) || qty<0){ pushToast('Enter a valid whole-number quantity.', 'err'); return; }
+  }
+  if(qty < merged.length){ pushToast(`Quantity ${qty} is less than the ${merged.length} lock number(s) listed.`, 'err'); return; }
+  if(ex){
+    const usedNow = allocUsedCount(ex.destination, ex.agency);
+    if(qty < usedNow){ pushToast(`Cannot set below ${usedNow} — that many locks are already assigned.`, 'err'); return; }
+    ex.qty = qty; ex.lockIds = merged; ex.updatedAt = nowStamp();
+    pushToast('Existing allocation updated.', 'ok');
+  } else {
+    state.allocations.push({id:genId('al'), destination, agency, qty, lockIds: merged, createdAt: nowStamp()});
+    pushToast('Allocation added.', 'ok');
+  }
+  await storageSet('st:allocations', state.allocations);
+  closeModal();
+}
+function modalEditAlloc(id){
+  const a = state.allocations.find(x=>x.id===id);
+  if(!a) return '';
+  const body = `
+    <div class="form-row">
+      <div class="field"><label for="allocDest">Destination</label><input id="allocDest" value="${escapeHtml(a.destination)}"></div>
+      <div class="field"><label for="allocAgency">Agency</label><input id="allocAgency" value="${escapeHtml(a.agency)}"></div>
+    </div>
+    <div class="field"><label for="allocQty">Lock Qty Allocated</label><input id="allocQty" type="number" min="0" step="1" value="${a.qty}"></div>
+    <div class="field"><label for="allocLockNos">Lock numbers</label><textarea id="allocLockNos" rows="6">${escapeHtml(allocLocks(a).map(l=>l.lockNo).join('\n'))}</textarea>
+      <div class="helper-text">This is the full list. Remove a line to release a lock number (only if it isn't assigned yet).</div></div>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitEditAlloc('${id}')">Save changes</button>`;
+  return modalShell('Edit allocation','Update destination, agency, quantity or lock numbers.', body, footer);
+}
+async function submitEditAlloc(id){
+  const a = state.allocations.find(x=>x.id===id);
+  if(!a) return;
+  const destination = document.getElementById('allocDest').value.trim();
+  const agency = document.getElementById('allocAgency').value.trim();
+  const qtyRaw = document.getElementById('allocQty').value.trim();
+  const nos = parseLockNos(document.getElementById('allocLockNos').value);
+  if(!destination || !agency){ pushToast('Enter destination and agency.', 'err'); return; }
+  if(state.allocations.some(x=>x.id!==id && allocKey(x.destination,x.agency)===allocKey(destination,agency))){ pushToast('That destination and agency already has an allocation.', 'err'); return; }
+  const usedNow = allocUsedCount(a.destination, a.agency);
+  if(usedNow>0 && allocKey(destination,agency)!==allocKey(a.destination,a.agency)){ pushToast(`Destination/agency can't change while ${usedNow} lock(s) are assigned to it.`, 'err'); return; }
+  const {ids, errors} = resolveLockNos(nos, destination, agency, id);
+  if(errors.length){ pushToast('Lock number issue — ' + errSummary(errors), 'err'); return; }
+  const dropped = allocLocks(a).filter(l=>l.status!=='available' && !ids.includes(l.id));
+  if(dropped.length){ pushToast(`${dropped.map(l=>l.lockNo).slice(0,3).join(', ')} already assigned — can't be removed from this allocation.`, 'err'); return; }
+  const qty = qtyRaw==='' ? ids.length : Number(qtyRaw);
+  if(!Number.isInteger(qty) || qty<0){ pushToast('Enter a valid whole-number quantity.', 'err'); return; }
+  if(qty < ids.length){ pushToast(`Quantity ${qty} is less than the ${ids.length} lock number(s) listed.`, 'err'); return; }
+  if(qty < usedNow){ pushToast(`Cannot set below ${usedNow} — that many locks are already assigned.`, 'err'); return; }
+  Object.assign(a,{destination,agency,qty,lockIds:ids,updatedAt:nowStamp()});
+  await storageSet('st:allocations', state.allocations);
+  closeModal();
+  pushToast('Allocation updated.', 'ok');
+}
+async function deleteAlloc(id){
+  const a = state.allocations.find(x=>x.id===id);
+  if(!a) return;
+  const usedNow = allocUsedCount(a.destination, a.agency);
+  if(usedNow>0){ pushToast(`Can't delete: ${usedNow} lock(s) are assigned to ${a.agency} → ${a.destination}. Return them first.`, 'err'); return; }
+  if(!confirm(`Delete allocation for ${a.agency} → ${a.destination}? Its reserved lock numbers are released.`)) return;
+  state.allocations = state.allocations.filter(x=>x.id!==id);
+  await storageSet('st:allocations', state.allocations);
+  pushToast('Allocation deleted.', 'ok');
+  render();
+}
+
+/* --- Bulk upload allocations (with lock numbers) --- */
+function modalBulkAlloc(){
+  const body = `
+    <div class="upload-drop">
+      <div style="font-size:13.5px;font-weight:600;">Upload a file (.xlsx, .xls or .csv)</div>
+      <div class="helper-text">Columns: <b>Destination</b>, <b>Agency</b>, <b>Qty</b>, <b>Lock No</b>. Use one row per lock number (repeat Destination and Agency), or put several lock numbers in one cell separated by commas.</div>
+      <input type="file" id="bulkAllocFile" accept=".xlsx,.xls,.csv">
+    </div>
+    <button type="button" class="template-link" style="margin-top:12px;" onclick="downloadAllocTemplate()">Download a blank template (.xlsx)</button>
+    <div class="divider-or">or paste rows</div>
+    <div class="field">
+      <label for="bulkAllocText">Destination, Agency, Qty, Lock No</label>
+      <textarea id="bulkAllocText" rows="5" placeholder="Cebu Warehouse, Metro Freight, 50, GPS-000123&#10;Cebu Warehouse, Metro Freight, , GPS-000124&#10;Davao Hub, Metro Freight, 30"></textarea>
+    </div>
+    <p class="helper-text">Qty is optional when lock numbers are given (it becomes the lock count; for an existing allocation it never drops below what's there). A 3-column line is read as Destination, Agency, Qty. Lock numbers are <b>added</b> to an existing allocation, must already exist as Available in GPS Locks, and can't belong to another destination/agency. Rejected lock numbers are skipped and reported.</p>
+  `;
+  const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitBulkAlloc()">Upload allocations</button>`;
+  return modalShell('Bulk upload allocations', 'Add or update destination / agency quotas and their lock numbers.', body, footer);
+}
+function downloadAllocTemplate(){
+  const ws = XLSX.utils.json_to_sheet([
+    {Destination:'Cebu Warehouse', Agency:'Metro Freight', Qty:50, 'Lock No':'GPS-000123'},
+    {Destination:'Cebu Warehouse', Agency:'Metro Freight', Qty:'', 'Lock No':'GPS-000124'}
+  ]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Template');
+  XLSX.writeFile(wb, 'sealtrack_allocation_template.xlsx');
+}
+function findAllocCol(headers, cands){
+  const lower = headers.map(h=>String(h).trim().toLowerCase());
+  for(const c of cands){ const i = lower.indexOf(c); if(i>-1) return headers[i]; }
+  return null;
+}
+async function submitBulkAlloc(){
+  const fileInput = document.getElementById('bulkAllocFile');
+  const text = document.getElementById('bulkAllocText').value;
+  let entries = [];
+  try{
+    if(fileInput && fileInput.files && fileInput.files[0]){
+      const rows = await extractRowsFromFile(fileInput.files[0]);
+      if(rows.length){
+        const hs = Object.keys(rows[0]);
+        const cD = findAllocCol(hs, ['destination','dest','to']);
+        const cA = findAllocCol(hs, ['agency','agency name']);
+        const cQ = findAllocCol(hs, ['qty','quantity','lock qty allocated','lock qty','allocated','allocation','qty allocated']);
+        const cL = findAllocCol(hs, ['lock no','lock no.','lock number','lock numbers','lock nos','lock','gps lock no','gps lock','serial no','serial']);
+        const taken = new Set([cD,cA,cQ,cL].filter(Boolean));
+        const pos = (i)=> (hs[i] && !taken.has(hs[i])) ? hs[i] : null;
+        const D = cD || pos(0), A = cA || pos(1);
+        const Q = cQ || (!cL ? pos(2) : null);
+        const L = cL || (!cL && hs.length>3 ? pos(3) : null);
+        rows.forEach(r=>entries.push({d:String(r[D]??'').trim(), a:String(r[A]??'').trim(), q:Q?r[Q]:'', l:L?r[L]:''}));
+      }
+    }
+  }catch(e){
+    pushToast('Could not read that file. Please check the format.', 'err');
+    return;
+  }
+  if(text.trim()){
+    text.split(/\n+/).forEach(line=>{
+      if(!line.trim()) return;
+      const parts = line.split(/\t|,/).map(x=>x.trim());
+      entries.push({d:parts[0]||'', a:parts[1]||'', q:parts[2]||'', l:parts.slice(3).join(',')});
+    });
+  }
+  entries = entries.filter(e=>e.d || e.a || String(e.q).trim() || String(e.l).trim());
+  if(entries.length===0){ pushToast('No allocation rows found to upload.', 'err'); return; }
+
+  // group rows by destination + agency
+  const groups = new Map();
+  let skipped = 0;
+  entries.forEach(e=>{
+    const qStr = String(e.q==null?'':e.q).replace(/,/g,'').trim();
+    const nos = parseLockNos(e.l);
+    let qty = null;
+    if(qStr!==''){
+      qty = Number(qStr);
+      if(!Number.isInteger(qty) || qty<0){ skipped++; return; }
+    }
+    if(!e.d || !e.a || (qty===null && nos.length===0)){ skipped++; return; }
+    const k = allocKey(e.d,e.a);
+    if(!groups.has(k)) groups.set(k, {destination:e.d, agency:e.a, qty:null, nos:[]});
+    const g = groups.get(k);
+    if(qty!==null) g.qty = qty;
+    nos.forEach(n=>{ if(!g.nos.some(x=>x.toLowerCase()===n.toLowerCase())) g.nos.push(n); });
+  });
+
+  let added=0, updated=0, belowUsed=0, belowLocks=0, lockCount=0;
+  const lockErrors = [];
+  groups.forEach(g=>{
+    const ex = findAllocation(g.destination, g.agency);
+    const {ids, errors} = resolveLockNos(g.nos, g.destination, g.agency, ex?ex.id:null);
+    errors.forEach(er=>lockErrors.push(er));
+    const existingIds = ex ? (ex.lockIds||[]).filter(id=>lockById(id)) : [];
+    const merged = Array.from(new Set([...existingIds, ...ids]));
+    if(!ex && g.qty===null && merged.length===0){ skipped++; return; }
+    const qty = g.qty!==null ? g.qty : (ex ? Math.max(ex.qty, merged.length) : merged.length);
+    if(qty < merged.length){ belowLocks++; return; }
+    if(ex && qty < allocUsedCount(ex.destination, ex.agency)){ belowUsed++; return; }
+    lockCount += merged.length - existingIds.length;
+    if(ex){ ex.qty = qty; ex.lockIds = merged; ex.updatedAt = nowStamp(); updated++; }
+    else { state.allocations.push({id:genId('al'), destination:g.destination, agency:g.agency, qty, lockIds:merged, createdAt:nowStamp()}); added++; }
+  });
+  if(added+updated===0){
+    const why = [];
+    if(belowLocks) why.push(`${belowLocks} group(s): qty less than lock numbers listed`);
+    if(belowUsed) why.push(`${belowUsed} group(s): qty below locks already assigned`);
+    if(lockErrors.length) why.push(errSummary(lockErrors));
+    pushToast('Nothing uploaded. ' + (why.join('; ') || `${skipped} row(s) invalid — need destination, agency, and a qty or lock no.`), 'err');
+    return;
+  }
+  await storageSet('st:allocations', state.allocations);
+  closeModal();
+  const extra = [];
+  if(skipped) extra.push(`${skipped} invalid row(s) skipped`);
+  if(belowLocks) extra.push(`${belowLocks} skipped (qty < lock numbers)`);
+  if(belowUsed) extra.push(`${belowUsed} skipped (qty < assigned)`);
+  if(lockErrors.length) extra.push(`${lockErrors.length} lock no. rejected — ${errSummary(lockErrors)}`);
+  pushToast(`${added} added, ${updated} updated, ${lockCount} lock no. reserved.` + (extra.length ? ' ' + extra.join('; ') + '.' : ''), extra.length ? 'err' : 'ok');
+}
+
+function modalViewAllocLocks(dest, agency){
+  const a = findAllocation(dest, agency);
+  const k = allocKey(dest, agency);
+  const reserved = a ? allocLocks(a).filter(l=>l.status==='available') : [];
+  const active = state.locks.filter(l=>(l.status==='assigned'||l.status==='received') && allocKey(l.destination,l.agency)===k);
+  const locks = [...active, ...reserved].sort((x,y)=>x.lockNo.localeCompare(y.lockNo,undefined,{numeric:true}));
+  const body = `
+    <p class="helper-text" style="margin:0 0 10px;">${active.length} assigned, ${reserved.length} reserved (not assigned yet).</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>#</th><th>Lock No.</th><th>Status</th><th>Plate</th><th>Assigned</th></tr></thead>
+      <tbody>${locks.map((l,i)=>`<tr><td>${i+1}</td><td class="mono">${escapeHtml(l.lockNo)}</td><td>${l.status==='available' ? '<span class="badge badge-available">Reserved</span>' : statusBadge(l.status)}</td><td class="mono">${escapeHtml(l.plate||'—')}</td><td>${l.assignedAt?fmtDate(l.assignedAt):'—'}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  return modalShell('Lock numbers', `${escapeHtml(agency)} → ${escapeHtml(dest)}`, body, `<button class="btn btn-ghost" onclick="closeModal()">Close</button>`);
 }
 
 /* ---------------- Boot ---------------- */
