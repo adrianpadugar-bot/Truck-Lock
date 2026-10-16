@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SealTrack — GPS Truck Lock Tracker</title>
+<title>SPX Truck Lock GPS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -223,6 +223,8 @@ tbody tr:hover{background:#FAFBFD;}
 .badge-available{background:var(--slate-bg);color:var(--slate);}
 .badge-assigned{background:var(--warning-bg);color:var(--warning);}
 .badge-received{background:var(--success-bg);color:var(--success);}
+.badge-returning{background:#ede9fe;color:#6d28d9;}
+.stat-card.c-returning::after{background:#8b5cf6;}
 
 .action-row{display:flex;gap:6px;flex-wrap:wrap;}
 .row-check{width:16px;height:16px;accent-color:var(--navy);}
@@ -267,6 +269,18 @@ tbody tr:hover{background:#FAFBFD;}
 .badge-noquota{background:var(--surface-2);color:var(--text-dim);}
 
 .chip-res{background:#fff !important;border:1px dashed var(--slate);color:var(--slate);}
+
+.dest-stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.stat-breakdown{margin-top:10px;display:grid;gap:3px;font-size:12px;color:var(--text-dim);}
+.stat-breakdown span{display:flex;justify-content:space-between;gap:10px;}
+.stat-breakdown em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.stat-breakdown b{color:var(--text);font-family:var(--font-mono);}
+.stat-card:not([role="button"]){cursor:default;}
+.stat-card:not([role="button"]):hover{transform:none;box-shadow:none;}
+
+.stat-sub{font-size:12px;color:var(--text-dim);margin-top:2px;}
+.stat-extra{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding:7px 10px;border-radius:8px;background:var(--surface-2);font-size:12px;font-weight:600;}
+.stat-extra b{font-family:var(--font-mono);font-size:15px;color:var(--navy-3);}
 
 /* ---------- Toast ---------- */
 .toast-stack{position:fixed;bottom:22px;right:22px;z-index:200;display:flex;flex-direction:column;gap:8px;}
@@ -336,7 +350,7 @@ tbody tr:hover{background:#FAFBFD;}
 
 <script>
 /* =========================================================================
-   SealTrack — GPS Truck Lock Tracker
+   SPX Truck Lock GPS
    Single-file HTML/JS app. Data persisted via window.storage (shared=true)
    so it syncs across everyone who opens this artifact.
    ========================================================================= */
@@ -375,8 +389,6 @@ let state = {
   exportMenuOpen: null,
   toasts: [],
   loginError: '',
-  dashboardStatusFilter: 'all',
-  dashboardDestFilter: null
 };
 
 /* ---------------- Storage helpers ----------------
@@ -490,6 +502,12 @@ function allDestinations(){
   state.allocations.forEach(a=>a.destination && set.add(a.destination));
   return Array.from(set).sort((a,b)=>a.localeCompare(b));
 }
+function allOrigins(){
+  const set = new Set();
+  state.routes.forEach(r=>r.origin && set.add(r.origin));
+  state.allocations.forEach(a=>a.origin && set.add(a.origin));
+  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+}
 function allAgencies(){
   const set = new Set();
   state.routes.forEach(r=>r.agency && set.add(r.agency));
@@ -528,7 +546,7 @@ function render(){
 
   const app = document.getElementById('app');
   if(state.loading){
-    app.innerHTML = `<div class="login-wrap"><div style="color:#fff;font-family:var(--font-display);font-size:15px;">Loading SealTrack…</div></div>`;
+    app.innerHTML = `<div class="login-wrap"><div style="color:#fff;font-family:var(--font-display);font-size:15px;">Loading SPX Truck Lock GPS…</div></div>`;
     return;
   }
   if(!state.currentUser){
@@ -554,7 +572,7 @@ function renderLogin(){
   return `
   <div class="login-wrap">
     <div class="login-card">
-      <div class="brand-mark">${ICONS.seal}<span class="brand-name">SealTrack</span></div>
+      <div class="brand-mark">${ICONS.seal}<span class="brand-name">SPX Truck Lock GPS</span></div>
       <p class="brand-sub">GPS Truck Lock tracking &amp; chain-of-custody</p>
       ${state.loginError ? `<div class="login-error">${escapeHtml(state.loginError)}</div>` : ''}
       <form onsubmit="handleLogin(event)">
@@ -602,7 +620,7 @@ function renderShell(){
   const isAdmin = state.currentUser.role === 'admin';
   const tabs = [
     {id:'dashboard', label:'Dashboard', icon:ICONS.dash},
-    {id:'locks', label: isAdmin ? 'GPS Locks' : 'My GPS Locks', icon:ICONS.lock},
+    {id:'locks', label: isAdmin ? 'Truck Lock Assigning' : 'My Truck Locks', icon:ICONS.lock},
   ];
   tabs.push({id:'allocation', label:'Allocation', icon:ICONS.alloc});
   if(isAdmin) tabs.push({id:'master', label:'Master Data', icon:ICONS.route});
@@ -612,7 +630,7 @@ function renderShell(){
   return `
   <div class="shell">
     <div class="sidebar">
-      <div class="sb-brand">${ICONS.seal}<span class="sb-brand-text">SealTrack</span></div>
+      <div class="sb-brand">${ICONS.seal}<span class="sb-brand-text">SPX Truck Lock GPS</span></div>
       ${tabs.map(t=>`
         <button class="nav-item ${state.activeTab===t.id?'active':''}" onclick="setTab('${t.id}')">${t.icon}<span>${t.label}</span></button>
       `).join('')}
@@ -657,118 +675,83 @@ function renderDashboard(){
   const available = scoped.filter(l=>l.status==='available').length;
   const assigned = scoped.filter(l=>l.status==='assigned').length;
   const received = scoped.filter(l=>l.status==='received').length;
+  const returning = scoped.filter(l=>l.status==='returning').length;
 
-  const df = state.dashboardDestFilter;
-
-  let byDest = '';
-  if(isAdmin){
-    const dests = allDestinations();
-    const rows = dests.map(d=>{
-      const dl = state.locks.filter(l=>l.destination===d);
-      return {
-        d,
-        atDestination: dl.filter(l=>l.status==='received').length,
-        inTransit: dl.filter(l=>l.status==='assigned').length
-      };
-    }).filter(r=>r.atDestination>0 || r.inTransit>0).sort((a,b)=> b.atDestination - a.atDestination || a.d.localeCompare(b.d));
-
-    byDest = `
-      <div class="panel">
-        <p class="panel-title">Locks by destination</p>
-        <p class="panel-sub">How many GPS truck locks are currently at each destination (received). Click a destination to filter recent activity.</p>
-        ${rows.length ? `
-        <div class="dest-grid">
-          ${rows.map(r=>`
-            <div class="dest-card ${df===r.d?'is-active':''}" onclick="setDashboardDestFilter(decodeURIComponent('${encodeURIComponent(r.d)}'))" role="button" tabindex="0">
-              <div class="dest-card-name">${escapeHtml(r.d)}</div>
-              <div class="dest-card-value">${r.atDestination}</div>
-              <div class="dest-card-sub">currently on-site</div>
-              <div class="dest-card-sub2">${r.inTransit} in-transit</div>
-            </div>
-          `).join('')}
-        </div>` : `<p class="helper-text">No locks assigned yet.</p>`}
-      </div>`;
-  }
-
-  const sf = state.dashboardStatusFilter;
-  let recentPool = scoped;
-  if(df) recentPool = recentPool.filter(l=>l.destination===df);
-  if(sf !== 'all') recentPool = recentPool.filter(l=>l.status===sf);
-  const dateKeyFor = l => sf==='received' ? l.receivedAt : (sf==='available' ? l.createdAt : (l.assignedAt||l.createdAt));
-  const recent = [...recentPool]
-    .sort((a,b)=> new Date(dateKeyFor(b)||0) - new Date(dateKeyFor(a)||0))
-    .slice(0, 10);
-
-  const statusLabels = {all:'All statuses', available:'Available', assigned:'Assigned / In-transit', received:'Received / Complete'};
-  const dateColLabel = sf==='received' ? 'Received' : (sf==='available' ? 'Added' : 'Assigned');
-  const filterActive = sf!=='all' || !!df;
-  const filterDescParts = [];
-  if(df) filterDescParts.push(`at "${escapeHtml(df)}"`);
-  if(sf!=='all') filterDescParts.push(`status "${escapeHtml(statusLabels[sf])}"`);
+  // One card per destination for a given status, with an agency breakdown.
+  const cardsFor = (status, cls) => {
+    const map = new Map();
+    scoped.filter(l=>l.status===status && l.destination).forEach(l=>{
+      if(!map.has(l.destination)) map.set(l.destination, {d:l.destination, n:0, agencies:new Map()});
+      const g = map.get(l.destination);
+      g.n++;
+      const ag = l.agency || '—';
+      g.agencies.set(ag, (g.agencies.get(ag)||0) + 1);
+    });
+    return Array.from(map.values()).sort((x,y)=>y.n-x.n || x.d.localeCompare(y.d)).map(g=>`
+      <div class="stat-card ${cls}">
+        <div class="stat-label">${escapeHtml(g.d)}</div>
+        <div class="stat-value">${g.n}</div>
+        <div class="stat-breakdown">
+          ${Array.from(g.agencies.entries()).sort((x,y)=>y[1]-x[1] || x[0].localeCompare(y[0])).map(([ag,n])=>`<span><em>${escapeHtml(ag)}</em><b>${n}</b></span>`).join('')}
+        </div>
+      </div>`);
+  };
+  // Assigned Destination: in-transit locks plus allocated locks not assigned yet (still usable).
+  const aMap = new Map();
+  const aGet = (d)=>{ if(!aMap.has(d)) aMap.set(d,{d, n:0, left:0, ag:new Map()}); return aMap.get(d); };
+  const agGet = (g,name)=>{ if(!g.ag.has(name)) g.ag.set(name,{n:0,left:0}); return g.ag.get(name); };
+  scoped.filter(l=>l.status==='assigned' && l.destination).forEach(l=>{
+    const g = aGet(l.destination); g.n++; agGet(g, l.agency||'—').n++;
+  });
+  state.allocations.filter(a=>isAdmin || a.destination===state.currentUser.destination).forEach(a=>{
+    const left = Math.max(a.qty - allocUsedCount(a.destination, a.agency), 0);
+    const g = aGet(a.destination); g.left += left; agGet(g, a.agency).left += left;
+  });
+  const assignedCards = Array.from(aMap.values()).filter(g=>g.n>0 || g.left>0)
+    .sort((x,y)=>y.n-x.n || y.left-x.left || x.d.localeCompare(y.d)).map(g=>`
+      <div class="stat-card c-assigned">
+        <div class="stat-label">${escapeHtml(g.d)}</div>
+        <div class="stat-value">${g.n}</div>
+        <div class="stat-sub">in-transit</div>
+        <div class="stat-extra"><span>Not assigned (still usable)</span><b>${g.left}</b></div>
+        <div class="stat-breakdown">
+          ${Array.from(g.ag.entries()).sort((x,y)=>y[1].n-x[1].n || x[0].localeCompare(y[0])).map(([name,v])=>`<span><em>${escapeHtml(name)}</em><b>${v.n} in-transit · ${v.left} left</b></span>`).join('')}
+        </div>
+      </div>`);
+  const receivedCards = cardsFor('received','c-received');
 
   return `
     <div class="topbar">
       <div>
         <h1 class="page-title">Dashboard</h1>
-        <p class="page-sub">${isAdmin? 'Fleet-wide overview of every GPS truck lock.' : `Overview for ${escapeHtml(state.currentUser.destination||'')}.`}</p>
+        <p class="page-sub">${isAdmin? 'Fleet-wide overview of every truck lock.' : `Overview for ${escapeHtml(state.currentUser.destination||'')}.`}</p>
       </div>
     </div>
     <div class="grid-cards">
-      <div class="stat-card c-total ${sf==='all' && !df?'is-active':''}" onclick="setDashboardFilter('all')" role="button" tabindex="0"><div class="stat-label">Total Locks</div><div class="stat-value">${total}</div></div>
-      <div class="stat-card c-available ${sf==='available' && !df?'is-active':''}" onclick="setDashboardFilter('available')" role="button" tabindex="0"><div class="stat-label">Available</div><div class="stat-value">${available}</div></div>
-      <div class="stat-card c-assigned ${sf==='assigned' && !df?'is-active':''}" onclick="setDashboardFilter('assigned')" role="button" tabindex="0"><div class="stat-label">Assigned / In-transit</div><div class="stat-value">${assigned}</div></div>
-      <div class="stat-card c-received ${sf==='received' && !df?'is-active':''}" onclick="setDashboardFilter('received')" role="button" tabindex="0"><div class="stat-label">Received / Complete</div><div class="stat-value">${received}</div></div>
+      <div class="stat-card c-total"><div class="stat-label">Total Locks</div><div class="stat-value">${total}</div></div>
+      <div class="stat-card c-available"><div class="stat-label">Available</div><div class="stat-value">${available}</div></div>
+      <div class="stat-card c-assigned"><div class="stat-label">Assigned / In-transit</div><div class="stat-value">${assigned}</div></div>
+      <div class="stat-card c-received"><div class="stat-label">Received / Complete</div><div class="stat-value">${received}</div></div>
+      <div class="stat-card c-returning"><div class="stat-label">Returning to Origin</div><div class="stat-value">${returning}</div></div>
     </div>
-    <div class="two-col">
-      <div class="panel">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-          <div>
-            <p class="panel-title">Recent activity ${filterActive ? `— ${filterDescParts.join(', ')}` : ''}</p>
-            <p class="panel-sub">${filterActive ? `Showing locks ${filterDescParts.join(' and ')}.` : 'Most recently assigned locks. Click a card above to filter.'}</p>
-          </div>
-          ${filterActive ? `<button class="btn btn-ghost btn-sm" onclick="setDashboardFilter('all')">Clear filter</button>` : ''}
-        </div>
-        ${recent.length ? `
-        <div class="table-wrap"><table>
-          <thead><tr><th>Lock No.</th><th>Status</th><th>Plate</th><th>Route</th><th>${dateColLabel}</th></tr></thead>
-          <tbody>
-            ${recent.map(l=>`
-              <tr>
-                <td class="mono">${escapeHtml(l.lockNo)}</td>
-                <td>${statusBadge(l.status)}</td>
-                <td class="mono">${escapeHtml(l.plate||'—')}</td>
-                <td>${escapeHtml(l.origin||'—')} → ${escapeHtml(l.destination||'—')}</td>
-                <td>${fmtDate(dateKeyFor(l))}</td>
-              </tr>`).join('')}
-          </tbody>
-        </table></div>` : emptyState('No matching activity', filterActive ? 'No locks match this filter yet.' : 'Bulk upload some GPS locks to get started.')}
-      </div>
-      ${byDest}
+    <div class="panel" style="margin-bottom:20px;">
+      <p class="panel-title">Assigned Destination</p>
+      <p class="panel-sub">Truck locks in-transit to each destination, plus the allocated locks not yet assigned (still usable). Once a destination receives a lock, it moves to Received Destination below.</p>
+      ${assignedCards.length ? `<div class="dest-stat-grid">${assignedCards.join('')}</div>` : `<p class="helper-text">No locks in-transit right now.</p>`}
+    </div>
+    <div class="panel">
+      <p class="panel-title">Received Destination</p>
+      <p class="panel-sub">All locks received by each destination.</p>
+      ${receivedCards.length ? `<div class="dest-stat-grid">${receivedCards.join('')}</div>` : `<p class="helper-text">No locks received yet.</p>`}
     </div>
   `;
 }
-
-function setDashboardFilter(status){
-  state.dashboardStatusFilter = status;
-  state.dashboardDestFilter = null;
-  render();
-}
-function setDashboardDestFilter(dest){
-  if(state.dashboardDestFilter === dest){
-    state.dashboardDestFilter = null;
-    state.dashboardStatusFilter = 'all';
-  } else {
-    state.dashboardDestFilter = dest;
-    state.dashboardStatusFilter = 'received';
-  }
-  render();
-}
-
 
 function statusBadge(status){
   if(status==='available') return `<span class="badge badge-available">Available</span>`;
   if(status==='assigned') return `<span class="badge badge-assigned">In-transit</span>`;
   if(status==='received') return `<span class="badge badge-received">Received</span>`;
+  if(status==='returning') return `<span class="badge badge-returning">Returning to origin</span>`;
   return `<span class="badge">${escapeHtml(status)}</span>`;
 }
 function emptyState(title, sub){
@@ -790,11 +773,14 @@ function renderLocksTab(){
     (isAdmin || selectedLocks.every(l=>l.destination===state.currentUser.destination));
   const canUnassign = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status!=='available');
   const canDelete = isAdmin && selectedLocks.length>0;
+  const canReturnOrigin = selectedLocks.length>0 && selectedLocks.every(l=>l.status==='assigned'||l.status==='received') &&
+    (isAdmin || selectedLocks.every(l=>l.destination===state.currentUser.destination));
+  const canArrive = isAdmin && selectedLocks.length>0 && selectedLocks.every(l=>l.status==='returning');
 
   return `
     <div class="topbar">
       <div>
-        <h1 class="page-title">${isAdmin?'GPS Locks':'My GPS Locks'}</h1>
+        <h1 class="page-title">${isAdmin?'Truck Lock Assigning':'My Truck Locks'}</h1>
         <p class="page-sub">${isAdmin? 'Upload, assign, and track every lock in the fleet.' : `Locks assigned to ${escapeHtml(state.currentUser.destination||'')}.`}</p>
       </div>
       <div class="action-row">
@@ -809,7 +795,9 @@ function renderLocksTab(){
         ${canAssign ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign')">Assign selected</button>` : ''}
         ${canForward ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign')">Forward to next destination</button>` : ''}
         ${canMarkReceived ? `<button class="btn btn-success btn-sm" onclick="bulkMarkReceived()">Mark received</button>` : ''}
-        ${canUnassign ? `<button class="btn btn-ghost btn-sm" onclick="bulkUnassign()">Return to available</button>` : ''}
+        ${canReturnOrigin ? `<button class="btn btn-accent btn-sm" onclick="bulkReturnToOrigin()">Return to origin</button>` : ''}
+        ${canArrive ? `<button class="btn btn-success btn-sm" onclick="bulkArriveAtOrigin()">Mark back at origin</button>` : ''}
+        ${canUnassign ? `<button class="btn btn-ghost btn-sm" onclick="bulkUnassign()">Release to available</button>` : ''}
         ${canDelete ? `<button class="btn btn-danger btn-sm" onclick="bulkDeleteLocks()">Delete</button>` : ''}
         <button class="btn btn-ghost btn-sm" onclick="clearSelection()">Clear</button>
       </div>` : ''}
@@ -824,6 +812,7 @@ function renderLocksTab(){
           <option value="available" ${state.filters.status==='available'?'selected':''}>Available</option>
           <option value="assigned" ${state.filters.status==='assigned'?'selected':''}>In-transit</option>
           <option value="received" ${state.filters.status==='received'?'selected':''}>Received</option>
+          <option value="returning" ${state.filters.status==='returning'?'selected':''}>Returning to origin</option>
         </select>
         ${isAdmin ? `
         <select class="filter-select" onchange="updateFilter('destination', this.value)">
@@ -869,7 +858,9 @@ function renderLocksTab(){
                   <div class="action-row">
                     ${isAdmin && l.status==='available' ? `<button class="btn btn-accent btn-sm" onclick="openModal('assign', ['${l.id}'])">Assign</button>` : ''}
                     ${l.status==='assigned' && (isAdmin || l.destination===state.currentUser.destination) ? `<button class="btn btn-success btn-sm" onclick="markReceived('${l.id}')">Mark received</button>` : ''}
-                    ${isAdmin && l.status!=='available' ? `<button class="btn btn-ghost btn-sm" onclick="unassignLock('${l.id}')">Return</button>` : ''}
+                    ${(l.status==='assigned'||l.status==='received') && (isAdmin || l.destination===state.currentUser.destination) ? `<button class="btn btn-accent btn-sm" onclick="returnToOrigin('${l.id}')">Return to origin</button>` : ''}
+                    ${isAdmin && l.status==='returning' ? `<button class="btn btn-success btn-sm" onclick="arriveAtOrigin('${l.id}')">Back at origin</button>` : ''}
+                    ${isAdmin && l.status!=='available' ? `<button class="btn btn-ghost btn-sm" onclick="unassignLock('${l.id}')">Release</button>` : ''}
                     ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openModal('editLock', ['${l.id}'])">Edit</button>` : ''}
                     ${isAdmin ? `<button class="btn btn-danger btn-sm" onclick="deleteLock('${l.id}')">Delete</button>` : ''}
                   </div>
@@ -943,17 +934,62 @@ async function bulkMarkReceived(){
   pushToast(`${n} lock(s) marked as received.`, 'ok');
   render();
 }
+function canReturnLock(l){
+  if(!l || (l.status!=='assigned' && l.status!=='received')) return false;
+  return state.currentUser.role==='admin' || l.destination===state.currentUser.destination;
+}
+async function returnToOrigin(id){
+  const l = state.locks.find(x=>x.id===id);
+  if(!canReturnLock(l)){ pushToast("This lock can't be returned to origin.", 'err'); return; }
+  if(!confirm(`Send lock ${l.lockNo} back to its origin (${l.origin||'—'})?`)) return;
+  Object.assign(l, {status:'returning', returnStartedAt: nowStamp()});
+  await storageSet('st:locks', state.locks);
+  pushToast(`Lock ${l.lockNo} is returning to ${l.origin||'its origin'}.`, 'ok');
+  render();
+}
+async function bulkReturnToOrigin(){
+  const sel = state.locks.filter(l=>state.selected.has(l.id));
+  if(!sel.length || !sel.every(canReturnLock)){ pushToast("Some selected locks can't be returned to origin.", 'err'); return; }
+  if(!confirm(`Send ${sel.length} lock(s) back to their origin?`)) return;
+  const stamp = nowStamp();
+  sel.forEach(l=>Object.assign(l,{status:'returning', returnStartedAt:stamp}));
+  await storageSet('st:locks', state.locks);
+  state.selected = new Set();
+  pushToast(`${sel.length} lock(s) returning to origin.`, 'ok');
+  render();
+}
+function backToStock(l){
+  // Back at origin: lock is available stock again. A reservation to an allocation stays in place.
+  Object.assign(l, {status:'available', agency:'', plate:'', origin:'', destination:'', assignedAt:null, receivedAt:null, returnStartedAt:null});
+}
+async function arriveAtOrigin(id){
+  const l = state.locks.find(x=>x.id===id);
+  if(!l || l.status!=='returning') return;
+  backToStock(l);
+  await storageSet('st:locks', state.locks);
+  pushToast(`Lock ${l.lockNo} is back at origin and available.`, 'ok');
+  render();
+}
+async function bulkArriveAtOrigin(){
+  const sel = state.locks.filter(l=>state.selected.has(l.id) && l.status==='returning');
+  if(!sel.length) return;
+  sel.forEach(backToStock);
+  await storageSet('st:locks', state.locks);
+  state.selected = new Set();
+  pushToast(`${sel.length} lock(s) are back at origin and available.`, 'ok');
+  render();
+}
 async function unassignLock(id){
   const lock = state.locks.find(l=>l.id===id);
   if(!lock) return;
-  if(!confirm(`Return lock ${lock.lockNo} to Available? This clears its assignment.`)) return;
+  if(!confirm(`Release lock ${lock.lockNo} to Available? This clears its assignment.`)) return;
   Object.assign(lock, {status:'available', agency:'', plate:'', origin:'', destination:'', assignedAt:null, receivedAt:null});
   await storageSet('st:locks', state.locks);
-  pushToast(`Lock ${lock.lockNo} returned to available.`, 'ok');
+  pushToast(`Lock ${lock.lockNo} released to available.`, 'ok');
   render();
 }
 async function bulkUnassign(){
-  if(!confirm(`Return ${state.selected.size} lock(s) to Available?`)) return;
+  if(!confirm(`Release ${state.selected.size} lock(s) to Available?`)) return;
   state.locks.forEach(l=>{
     if(state.selected.has(l.id)){
       Object.assign(l, {status:'available', agency:'', plate:'', origin:'', destination:'', assignedAt:null, receivedAt:null});
@@ -961,7 +997,7 @@ async function bulkUnassign(){
   });
   await storageSet('st:locks', state.locks);
   state.selected = new Set();
-  pushToast('Selected locks returned to available.', 'ok');
+  pushToast('Selected locks released to available.', 'ok');
   render();
 }
 async function deleteLock(id){
@@ -1114,88 +1150,74 @@ function commonFieldValue(locks, field){
 }
 function modalAssign(ids){
   const locks = state.locks.filter(l=>ids.includes(l.id));
-  const isForward = locks.length>0 && locks.every(l=>l.status==='received');
-  const prefillOrigin = isForward ? commonFieldValue(locks, 'destination') : '';
-  const resvList = locks.map(l=>reservationOf(l.id));
-  const resv = (resvList.length && resvList[0] && resvList.every(r=>r && r.id===resvList[0].id)) ? resvList[0] : null;
-  const prefillAgency = resv ? resv.agency : (isForward ? commonFieldValue(locks, 'agency') : '');
-  const prefillDest = resv ? resv.destination : '';
-  const prefillPlate = isForward ? commonFieldValue(locks, 'plate') : '';
-  const routeOptions = state.routes.map(r=>`<option value="${r.id}">${escapeHtml(r.agency)} — ${escapeHtml(r.plate)} (${escapeHtml(r.origin)} → ${escapeHtml(r.destination)})</option>`).join('');
+  const resvs = locks.map(l=>reservationOf(l.id));
+  const resvIds = Array.from(new Set(resvs.filter(Boolean).map(r=>r.id)));
+  const mixed = resvIds.length>1;
+  const fixed = resvIds.length===1 ? state.allocations.find(x=>x.id===resvIds[0]) : null;
+  const opts = allocBalanceList().filter(x=> fixed ? x.a.id===fixed.id : x.left>0);
+  const pre = fixed || (opts.length===1 ? opts[0].a : null);
+  const nonAvail = locks.filter(l=>l.status!=='available').length;
+  const warn = mixed ? 'The selected locks are listed under different allocations. Select locks from one allocation at a time.'
+    : (nonAvail ? `${nonAvail} selected lock(s) are already assigned and can't be reassigned. They can only go to their allocated destination or back to origin.`
+    : (state.allocations.length===0 ? 'No allocations yet. Add allocations in the Allocation tab before assigning locks.'
+    : (opts.length===0 ? 'No allocation has slots left for these locks.' : '')));
+  const plateOptions = (pre ? state.routes.filter(r=>r.plate && allocKey('',r.agency)===allocKey('',pre.agency)) : state.routes.filter(r=>r.plate))
+    .map(r=>r.plate);
   const body = `
-    <p class="helper-text" style="margin-bottom:10px;">${isForward ? 'Forwarding' : 'Assigning'} ${locks.length} lock(s):</p>
+    <p class="helper-text" style="margin-bottom:10px;">Assigning ${locks.length} lock(s):</p>
     <div class="chip-list">${locks.map(l=>`<span class="chip">${escapeHtml(l.lockNo)}</span>`).join('')}</div>
-    ${isForward ? `<p class="helper-text" style="margin-top:8px;">These locks already arrived — their current destination becomes the new origin below. Pick where they're headed next.</p>` : ''}
-
-    ${state.routes.length ? `
+    ${warn ? `<div class="helper-text" style="margin-top:12px;color:var(--danger);">${escapeHtml(warn)}</div>` : ''}
     <div class="field" style="margin-top:16px;">
-      <label for="assignRouteSelect">Quick-fill from master list (optional)</label>
-      <select id="assignRouteSelect" onchange="fillFromRoute(this.value)">
-        <option value="">— Select a saved route —</option>
-        ${routeOptions}
+      <label for="assignAlloc">Allocation</label>
+      <select id="assignAlloc" onchange="fillFromAllocation(this.value)" ${fixed?'disabled':''}>
+        ${pre ? '' : '<option value="">— Select an allocation —</option>'}
+        ${opts.map(x=>`<option value="${x.a.id}" ${pre && pre.id===x.a.id?'selected':''}>${escapeHtml(x.a.agency)} → ${escapeHtml(x.a.destination)} — ${Math.max(x.left,0)} left of ${x.a.qty}${x.pending?` (${x.pending} reserved lock no.)`:''}</option>`).join('')}
       </select>
-    </div>` : ''}
-
-    ${(()=>{ const bl = allocBalanceList(); return bl.length ? `<div class="helper-text" style="margin-top:12px;padding:10px 12px;background:var(--surface-2);border-radius:8px;"><b>Allocation balance</b> (assignment must match one of these):<br>${bl.map(x=>`${escapeHtml(x.a.agency)} → ${escapeHtml(x.a.destination)}: <b>${Math.max(x.left,0)}</b> left of ${x.a.qty}${x.pending?` (${x.pending} reserved lock no.)`:''}`).join('<br>')}</div>` : `<div class="helper-text" style="margin-top:12px;color:var(--danger);">No allocations set yet. Add allocations in the Allocation tab before assigning locks.</div>`; })()}
-    <div class="form-row" style="margin-top:12px;">
-      <div class="field">
-        <label for="assignAgency">Agency</label>
-        <input id="assignAgency" list="agencyList" placeholder="e.g. Metro Freight" value="${escapeHtml(prefillAgency)}">
-        <datalist id="agencyList">${allAgencies().map(a=>`<option value="${escapeHtml(a)}">`).join('')}</datalist>
-      </div>
-      <div class="field">
-        <label for="assignPlate">Truck plate no.</label>
-        <input id="assignPlate" list="plateList" placeholder="e.g. NGT-4521" value="${escapeHtml(prefillPlate)}">
-        <datalist id="plateList">${distinctList(state.routes,'plate').map(p=>`<option value="${escapeHtml(p)}">`).join('')}</datalist>
-      </div>
+      ${fixed ? `<div class="helper-text">These locks are reserved for this allocation.</div>` : ''}
     </div>
     <div class="form-row">
-      <div class="field">
-        <label for="assignOrigin">Origin${isForward ? ' (auto-filled from current destination)' : ''}</label>
-        <input id="assignOrigin" list="originList" placeholder="e.g. Manila Port" value="${escapeHtml(prefillOrigin)}">
-        <datalist id="originList">${distinctList(state.routes,'origin').map(o=>`<option value="${escapeHtml(o)}">`).join('')}</datalist>
-      </div>
-      <div class="field">
-        <label for="assignDestination">Next destination</label>
-        <input id="assignDestination" list="destList" placeholder="e.g. Cebu Warehouse" value="${escapeHtml(prefillDest)}">
-        <datalist id="destList">${allDestinations().map(d=>`<option value="${escapeHtml(d)}">`).join('')}</datalist>
-      </div>
+      <div class="field"><label for="assignAgency">Agency</label><input id="assignAgency" readonly value="${escapeHtml(pre?pre.agency:'')}" placeholder="Auto from allocation"></div>
+      <div class="field"><label for="assignPlate">Truck plate no.</label>
+        <input id="assignPlate" list="plateList" placeholder="e.g. NGT-4521">
+        <datalist id="plateList">${Array.from(new Set(plateOptions)).map(p=>`<option value="${escapeHtml(p)}">`).join('')}</datalist></div>
     </div>
+    <div class="form-row">
+      <div class="field"><label for="assignOrigin">Origin</label><input id="assignOrigin" readonly value="${escapeHtml(pre?(pre.origin||''):'')}" placeholder="Auto from allocation"></div>
+      <div class="field"><label for="assignDestination">Destination</label><input id="assignDestination" readonly value="${escapeHtml(pre?pre.destination:'')}" placeholder="Auto from allocation"></div>
+    </div>
+    <div id="assignOriginWarn" class="helper-text" style="color:var(--danger);">${pre && !pre.origin ? 'This allocation has no origin. Edit it in the Allocation tab first.' : ''}</div>
   `;
   const footer = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-    <button class="btn btn-accent" onclick="submitAssign([${ids.map(id=>"'"+id+"'").join(',')}])">${isForward ? 'Forward' : 'Assign'}</button>
+    <button class="btn btn-accent" ${(mixed||nonAvail)?'disabled':''} onclick="submitAssign([${ids.map(id=>"'"+id+"'").join(',')}])">Assign</button>
   `;
-  return modalShell(isForward ? 'Forward to next destination' : 'Assign GPS lock', isForward ? 'This lock already arrived — send it to its next stop.' : 'Tag agency, plate, origin and destination.', body, footer);
+  return modalShell('Truck Lock Assigning', 'Agency, origin and destination come from the allocation. Enter the truck plate.', body, footer);
 }
 
-function fillFromRoute(routeId){
-  const r = state.routes.find(x=>x.id===routeId);
-  if(!r) return;
-  document.getElementById('assignAgency').value = r.agency||'';
-  document.getElementById('assignPlate').value = r.plate||'';
-  document.getElementById('assignOrigin').value = r.origin||'';
-  document.getElementById('assignDestination').value = r.destination||'';
+function fillFromAllocation(allocId){
+  const a = state.allocations.find(x=>x.id===allocId);
+  document.getElementById('assignAgency').value = a ? a.agency : '';
+  document.getElementById('assignOrigin').value = a ? (a.origin||'') : '';
+  document.getElementById('assignDestination').value = a ? a.destination : '';
+  const w = document.getElementById('assignOriginWarn');
+  if(w) w.textContent = (a && !a.origin) ? 'This allocation has no origin. Edit it in the Allocation tab first.' : '';
+  const plates = a ? state.routes.filter(r=>r.plate && allocKey('',r.agency)===allocKey('',a.agency)).map(r=>r.plate) : [];
+  const dl = document.getElementById('plateList');
+  if(dl) dl.innerHTML = Array.from(new Set(plates)).map(p=>`<option value="${escapeHtml(p)}">`).join('');
 }
 
 async function submitAssign(ids){
-  const agencyIn = document.getElementById('assignAgency').value.trim();
+  const allocId = document.getElementById('assignAlloc').value;
   const plate = document.getElementById('assignPlate').value.trim();
-  const origin = document.getElementById('assignOrigin').value.trim();
-  const destIn = document.getElementById('assignDestination').value.trim();
-  if(!agencyIn || !plate || !origin || !destIn){
-    pushToast('Please fill in agency, plate, origin and destination.', 'err');
-    return;
-  }
+  const alloc = state.allocations.find(x=>x.id===allocId);
+  if(!alloc){ pushToast('Select an allocation.', 'err'); return; }
+  if(!plate){ pushToast('Enter the truck plate no.', 'err'); return; }
+  if(!alloc.origin){ pushToast(`${alloc.agency} → ${alloc.destination} has no origin. Edit the allocation first.`, 'err'); return; }
+  const origin = alloc.origin;
   // Locks already allocated cannot be re-allocated elsewhere.
   const locked = state.locks.filter(l=>ids.includes(l.id) && l.status!=='available');
   if(locked.length){
-    pushToast(`${locked.length} selected lock(s) are already allocated to a destination/agency and cannot be reallocated. Use Return first.`, 'err');
-    return;
-  }
-  const alloc = findAllocation(destIn, agencyIn);
-  if(!alloc){
-    pushToast(`No allocation exists for ${agencyIn} → ${destIn}. Add one in the Allocation tab first.`, 'err');
+    pushToast(`${locked.length} selected lock(s) are already allocated to a destination/agency and cannot be reallocated. They can only be returned to their origin (or released first).`, 'err');
     return;
   }
   const used = allocUsedCount(alloc.destination, alloc.agency);
@@ -1244,16 +1266,17 @@ function modalEditLock(id){
           <option value="available" ${l.status==='available'?'selected':''}>Available</option>
           <option value="assigned" ${l.status==='assigned'?'selected':''}>In-transit</option>
           <option value="received" ${l.status==='received'?'selected':''}>Received</option>
+          <option value="returning" ${l.status==='returning'?'selected':''}>Returning to origin</option>
         </select>
       </div>
       <div class="field"><label>Agency</label><input id="editAgency" value="${escapeHtml(l.agency||'')}" disabled></div>
     </div>
     <div class="form-row">
       <div class="field"><label>Plate no.</label><input id="editPlate" value="${escapeHtml(l.plate||'')}"></div>
-      <div class="field"><label>Origin</label><input id="editOrigin" value="${escapeHtml(l.origin||'')}"></div>
+      <div class="field"><label>Origin</label><input id="editOrigin" value="${escapeHtml(l.origin||'')}" disabled></div>
     </div>
     <div class="field"><label>Destination</label><input id="editDestination" value="${escapeHtml(l.destination||'')}" disabled></div>
-    <p class="helper-text">Agency and destination are locked by Allocation rules. ${l.status==='available' ? 'Use Assign on the GPS Locks tab to allocate this lock.' : 'To move this lock elsewhere, use Return first, then assign it within an allocation.'}</p>
+    <p class="helper-text">Agency, origin and destination come from the Allocation and can't be edited here. ${l.status==='available' ? 'Use Assign on the Truck Lock Assigning tab to allocate this lock.' : 'This lock can only go to its allocated destination or be returned to its origin.'}</p>
   `;
   const footer = `
     <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
@@ -1269,13 +1292,13 @@ async function submitEditLock(id){
   const status = document.getElementById('editStatus').value;
   l.lockNo = lockNo;
   l.plate = document.getElementById('editPlate').value.trim();
-  l.origin = document.getElementById('editOrigin').value.trim();
   if(l.status==='available'){ l.plate=''; l.origin=''; }
   if(status !== l.status){
     l.status = status;
     if(status==='assigned' && !l.assignedAt) l.assignedAt = nowStamp();
     if(status==='received' && !l.receivedAt) l.receivedAt = nowStamp();
-    if(status==='available'){ l.assignedAt=null; l.receivedAt=null; }
+    if(status==='returning' && !l.returnStartedAt) l.returnStartedAt = nowStamp();
+    if(status==='available'){ Object.assign(l,{agency:'',plate:'',origin:'',destination:'',assignedAt:null,receivedAt:null,returnStartedAt:null}); }
   }
   await storageSet('st:locks', state.locks);
   closeModal();
@@ -1410,7 +1433,7 @@ function downloadRouteTemplate(){
   const ws = XLSX.utils.json_to_sheet([{Agency:'', Plate:'', Origin:'', Destination:''}]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Template');
-  XLSX.writeFile(wb, 'sealtrack_route_template.xlsx');
+  XLSX.writeFile(wb, 'spx_truck_lock_gps_route_template.xlsx');
 }
 async function submitBulkRoutes(){
   const fileInput = document.getElementById('bulkRouteFile');
@@ -1659,13 +1682,13 @@ async function deleteUser(id){
 function exportData(scope, format){
   state.exportMenuOpen = null;
   let rows = [];
-  let filename = 'sealtrack_export';
+  let filename = 'spx_truck_lock_gps_export';
   if(scope === 'locks'){
     const base = visibleLocksBase();
     const list = applyFilters(base);
     rows = list.map(l=>({
       'Lock No': l.lockNo,
-      'Status': l.status==='available'?'Available':(l.status==='assigned'?'In-transit':'Received'),
+      'Status': ({available:'Available',assigned:'In-transit',received:'Received',returning:'Returning to origin'})[l.status]||l.status,
       'Agency': l.agency||'',
       'Plate No': l.plate||'',
       'Origin': l.origin||'',
@@ -1682,7 +1705,7 @@ function exportData(scope, format){
     const out = [];
     buildAllocationRows().forEach(r=>{
       out.push({
-        'Destination': r.destination, 'Agency': r.agency,
+        'Origin': r.origin||'', 'Destination': r.destination, 'Agency': r.agency,
         'Lock Qty Allocated': r.qty===null ? '' : r.qty,
         'Locks Assigned': r.locks.length,
         'Balance': r.qty===null ? '' : r.qty - r.locks.length,
@@ -1724,7 +1747,7 @@ function lockById(id){ return state.locks.find(l=>l.id===id); }
 function allocLocks(a){ return (a.lockIds||[]).map(lockById).filter(Boolean); }
 function allocUsedCount(dest, agency){
   const k = allocKey(dest,agency);
-  return state.locks.filter(l=>(l.status==='assigned'||l.status==='received') && allocKey(l.destination,l.agency)===k).length;
+  return state.locks.filter(l=>(l.status==='assigned'||l.status==='received'||l.status==='returning') && allocKey(l.destination,l.agency)===k).length;
 }
 function reservationOf(lockId){ return state.allocations.find(a=>(a.lockIds||[]).includes(lockId)) || null; }
 function allocPendingReserved(a){ return allocLocks(a).filter(l=>l.status==='available').length; }
@@ -1745,7 +1768,7 @@ function resolveLockNos(nos, destination, agency, excludeAllocId){
   const pairKey = allocKey(destination, agency);
   nos.forEach(no=>{
     const l = state.locks.find(x=>String(x.lockNo).toLowerCase()===no.toLowerCase());
-    if(!l){ errors.push(`${no}: not found in GPS Locks`); return; }
+    if(!l){ errors.push(`${no}: not found in Truck Lock Assigning`); return; }
     if(seen.has(l.id)) return;
     seen.add(l.id);
     if(l.status!=='available' && allocKey(l.destination,l.agency)!==pairKey){
@@ -1767,14 +1790,14 @@ function buildAllocationRows(){
   const isAdmin = state.currentUser.role === 'admin';
   const map = new Map();
   state.allocations.forEach(a=>{
-    map.set(allocKey(a.destination,a.agency), {allocId:a.id, destination:a.destination, agency:a.agency, qty:a.qty,
+    map.set(allocKey(a.destination,a.agency), {allocId:a.id, origin:a.origin||'', destination:a.destination, agency:a.agency, qty:a.qty,
       locks:[], reserved: allocLocks(a).filter(l=>l.status==='available')});
   });
   state.locks.forEach(l=>{
     if(!l.destination || !l.agency) return;
-    if(l.status!=='assigned' && l.status!=='received') return;
+    if(l.status!=='assigned' && l.status!=='received' && l.status!=='returning') return;
     const k = allocKey(l.destination,l.agency);
-    if(!map.has(k)) map.set(k, {allocId:null, destination:l.destination, agency:l.agency, qty:null, locks:[], reserved:[]});
+    if(!map.has(k)) map.set(k, {allocId:null, origin:'', destination:l.destination, agency:l.agency, qty:null, locks:[], reserved:[]});
     map.get(k).locks.push(l);
   });
   let rows = Array.from(map.values());
@@ -1785,7 +1808,7 @@ function buildAllocationRows(){
   rows.forEach(r=>{ r.locks.sort(byNo); r.reserved.sort(byNo); r.all = [...r.locks, ...r.reserved].sort(byNo); });
   if(f.search){
     const q = f.search.toLowerCase();
-    rows = rows.filter(r=>(r.destination+' '+r.agency+' '+r.all.map(l=>l.lockNo).join(' ')).toLowerCase().includes(q));
+    rows = rows.filter(r=>((r.origin||'')+' '+r.destination+' '+r.agency+' '+r.all.map(l=>l.lockNo).join(' ')).toLowerCase().includes(q));
   }
   return rows.sort((a,b)=>a.destination.localeCompare(b.destination) || a.agency.localeCompare(b.agency));
 }
@@ -1804,7 +1827,7 @@ function renderAllocationTab(){
     <div class="topbar">
       <div>
         <h1 class="page-title">Allocation</h1>
-        <p class="page-sub">Lock quantity and lock numbers allocated per destination and agency. Locks can only be assigned within an allocation, can't exceed its quantity, and a lock number listed under one allocation can't go to another destination or agency.</p>
+        <p class="page-sub">Lock quantity and lock numbers allocated per destination and agency. Locks can only be assigned within an allocation, can't exceed its quantity, and a lock number listed under one allocation can't go to another destination or agency — it can only be returned to its origin.</p>
       </div>
       <div class="action-row">
         ${isAdmin ? `<button class="btn btn-accent" onclick="openModal('addAlloc')">＋ Add allocation</button>` : ''}
@@ -1829,9 +1852,9 @@ function renderAllocationTab(){
       <p class="helper-text" style="margin:-4px 0 12px;">Solid lock numbers are assigned (in-transit / received). Dashed ones are reserved for this allocation but not assigned yet.</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Destination</th><th>Agency</th><th>Lock Qty Allocated</th><th>Assigned</th><th>Balance</th><th>Lock Numbers</th>${isAdmin?'<th>Actions</th>':''}</tr></thead>
+          <thead><tr><th>Origin</th><th>Destination</th><th>Agency</th><th>Lock Qty Allocated</th><th>Assigned</th><th>Balance</th><th>Lock Numbers</th>${isAdmin?'<th>Actions</th>':''}</tr></thead>
           <tbody>
-            ${rows.length===0 ? `<tr class="empty-row"><td colspan="${isAdmin?7:6}">${emptyState('No allocations yet', isAdmin ? 'Add an allocation (with lock numbers) or assign locks to a destination and agency.' : 'Nothing is allocated to your destination yet.')}</td></tr>` : rows.map(r=>{
+            ${rows.length===0 ? `<tr class="empty-row"><td colspan="${isAdmin?8:7}">${emptyState('No allocations yet', isAdmin ? 'Add an allocation (with lock numbers) or assign locks to a destination and agency.' : 'Nothing is allocated to your destination yet.')}</td></tr>` : rows.map(r=>{
               const n = r.locks.length;
               const hasQ = r.qty!==null;
               const bal = hasQ ? r.qty - n : null;
@@ -1841,6 +1864,7 @@ function renderAllocationTab(){
               const total = r.all.length;
               const viewBtn = `<button class="chip-more" onclick="openModal('viewAllocLocks',[decodeURIComponent('${dEnc}'),decodeURIComponent('${aEnc}')])">${total>MAXCHIPS ? '+'+(total-MAXCHIPS)+' more' : 'View'}</button>`;
               return `<tr>
+                <td>${r.origin ? escapeHtml(r.origin) : '<span class="helper-text">—</span>'}</td>
                 <td><b>${escapeHtml(r.destination)}</b></td>
                 <td>${escapeHtml(r.agency)}</td>
                 <td>${hasQ ? `<span class="qty-num">${r.qty}</span>` : `<span class="badge badge-noquota">No quota set</span>`}</td>
@@ -1874,9 +1898,11 @@ function modalAddAlloc(){
       <div class="field"><label for="allocDest">Destination</label><input id="allocDest" list="allocDestList" placeholder="e.g. Cebu Warehouse" value="${escapeHtml(preD)}"><datalist id="allocDestList">${allDestinations().map(d=>`<option value="${escapeHtml(d)}">`).join('')}</datalist></div>
       <div class="field"><label for="allocAgency">Agency</label><input id="allocAgency" list="allocAgencyList" placeholder="e.g. Metro Freight" value="${escapeHtml(preA)}"><datalist id="allocAgencyList">${allAgencies().map(a=>`<option value="${escapeHtml(a)}">`).join('')}</datalist></div>
     </div>
+    <div class="field"><label for="allocOrigin">Origin</label><input id="allocOrigin" list="allocOriginList" placeholder="e.g. Manila Port"><datalist id="allocOriginList">${allOrigins().map(o=>`<option value="${escapeHtml(o)}">`).join('')}</datalist>
+      <div class="helper-text">Truck Lock Assigning looks up Agency, Origin and Destination from this allocation.</div></div>
     <div class="field"><label for="allocQty">Lock Qty Allocated</label><input id="allocQty" type="number" min="0" step="1" placeholder="Leave blank to use the number of lock numbers below"></div>
     <div class="field"><label for="allocLockNos">Lock numbers</label><textarea id="allocLockNos" rows="5" placeholder="GPS-000123&#10;GPS-000124&#10;(one per line or comma separated)"></textarea>
-      <div class="helper-text">Must already exist as Available in GPS Locks. Added to any lock numbers this destination + agency already has.</div></div>
+      <div class="helper-text">Must already exist as Available in Truck Lock Assigning. Added to any lock numbers this destination + agency already has.</div></div>
   `;
   const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitAddAlloc()">Save allocation</button>`;
   return modalShell('Add allocation','Quantity and lock numbers for a destination and agency.', body, footer);
@@ -1885,8 +1911,9 @@ async function submitAddAlloc(){
   const destination = document.getElementById('allocDest').value.trim();
   const agency = document.getElementById('allocAgency').value.trim();
   const qtyRaw = document.getElementById('allocQty').value.trim();
+  const origin = document.getElementById('allocOrigin').value.trim();
   const nos = parseLockNos(document.getElementById('allocLockNos').value);
-  if(!destination || !agency){ pushToast('Enter destination and agency.', 'err'); return; }
+  if(!destination || !agency || !origin){ pushToast('Enter origin, destination and agency.', 'err'); return; }
   const ex = findAllocation(destination, agency);
   const {ids, errors} = resolveLockNos(nos, destination, agency, ex?ex.id:null);
   if(errors.length){ pushToast('Lock number issue — ' + errSummary(errors), 'err'); return; }
@@ -1904,10 +1931,10 @@ async function submitAddAlloc(){
   if(ex){
     const usedNow = allocUsedCount(ex.destination, ex.agency);
     if(qty < usedNow){ pushToast(`Cannot set below ${usedNow} — that many locks are already assigned.`, 'err'); return; }
-    ex.qty = qty; ex.lockIds = merged; ex.updatedAt = nowStamp();
+    ex.qty = qty; ex.origin = origin; ex.lockIds = merged; ex.updatedAt = nowStamp();
     pushToast('Existing allocation updated.', 'ok');
   } else {
-    state.allocations.push({id:genId('al'), destination, agency, qty, lockIds: merged, createdAt: nowStamp()});
+    state.allocations.push({id:genId('al'), origin, destination, agency, qty, lockIds: merged, createdAt: nowStamp()});
     pushToast('Allocation added.', 'ok');
   }
   await storageSet('st:allocations', state.allocations);
@@ -1921,6 +1948,7 @@ function modalEditAlloc(id){
       <div class="field"><label for="allocDest">Destination</label><input id="allocDest" value="${escapeHtml(a.destination)}"></div>
       <div class="field"><label for="allocAgency">Agency</label><input id="allocAgency" value="${escapeHtml(a.agency)}"></div>
     </div>
+    <div class="field"><label for="allocOrigin">Origin</label><input id="allocOrigin" list="allocOriginList" value="${escapeHtml(a.origin||'')}"><datalist id="allocOriginList">${allOrigins().map(o=>`<option value="${escapeHtml(o)}">`).join('')}</datalist></div>
     <div class="field"><label for="allocQty">Lock Qty Allocated</label><input id="allocQty" type="number" min="0" step="1" value="${a.qty}"></div>
     <div class="field"><label for="allocLockNos">Lock numbers</label><textarea id="allocLockNos" rows="6">${escapeHtml(allocLocks(a).map(l=>l.lockNo).join('\n'))}</textarea>
       <div class="helper-text">This is the full list. Remove a line to release a lock number (only if it isn't assigned yet).</div></div>
@@ -1934,8 +1962,9 @@ async function submitEditAlloc(id){
   const destination = document.getElementById('allocDest').value.trim();
   const agency = document.getElementById('allocAgency').value.trim();
   const qtyRaw = document.getElementById('allocQty').value.trim();
+  const origin = document.getElementById('allocOrigin').value.trim();
   const nos = parseLockNos(document.getElementById('allocLockNos').value);
-  if(!destination || !agency){ pushToast('Enter destination and agency.', 'err'); return; }
+  if(!destination || !agency || !origin){ pushToast('Enter origin, destination and agency.', 'err'); return; }
   if(state.allocations.some(x=>x.id!==id && allocKey(x.destination,x.agency)===allocKey(destination,agency))){ pushToast('That destination and agency already has an allocation.', 'err'); return; }
   const usedNow = allocUsedCount(a.destination, a.agency);
   if(usedNow>0 && allocKey(destination,agency)!==allocKey(a.destination,a.agency)){ pushToast(`Destination/agency can't change while ${usedNow} lock(s) are assigned to it.`, 'err'); return; }
@@ -1947,7 +1976,7 @@ async function submitEditAlloc(id){
   if(!Number.isInteger(qty) || qty<0){ pushToast('Enter a valid whole-number quantity.', 'err'); return; }
   if(qty < ids.length){ pushToast(`Quantity ${qty} is less than the ${ids.length} lock number(s) listed.`, 'err'); return; }
   if(qty < usedNow){ pushToast(`Cannot set below ${usedNow} — that many locks are already assigned.`, 'err'); return; }
-  Object.assign(a,{destination,agency,qty,lockIds:ids,updatedAt:nowStamp()});
+  Object.assign(a,{origin,destination,agency,qty,lockIds:ids,updatedAt:nowStamp()});
   await storageSet('st:allocations', state.allocations);
   closeModal();
   pushToast('Allocation updated.', 'ok');
@@ -1956,7 +1985,7 @@ async function deleteAlloc(id){
   const a = state.allocations.find(x=>x.id===id);
   if(!a) return;
   const usedNow = allocUsedCount(a.destination, a.agency);
-  if(usedNow>0){ pushToast(`Can't delete: ${usedNow} lock(s) are assigned to ${a.agency} → ${a.destination}. Return them first.`, 'err'); return; }
+  if(usedNow>0){ pushToast(`Can't delete: ${usedNow} lock(s) are assigned to ${a.agency} → ${a.destination}. Release them first.`, 'err'); return; }
   if(!confirm(`Delete allocation for ${a.agency} → ${a.destination}? Its reserved lock numbers are released.`)) return;
   state.allocations = state.allocations.filter(x=>x.id!==id);
   await storageSet('st:allocations', state.allocations);
@@ -1964,33 +1993,33 @@ async function deleteAlloc(id){
   render();
 }
 
-/* --- Bulk upload allocations (with lock numbers) --- */
+/* --- Bulk upload allocations (with origin and lock numbers) --- */
 function modalBulkAlloc(){
   const body = `
     <div class="upload-drop">
       <div style="font-size:13.5px;font-weight:600;">Upload a file (.xlsx, .xls or .csv)</div>
-      <div class="helper-text">Columns: <b>Destination</b>, <b>Agency</b>, <b>Qty</b>, <b>Lock No</b>. Use one row per lock number (repeat Destination and Agency), or put several lock numbers in one cell separated by commas.</div>
+      <div class="helper-text">Columns: <b>Origin</b>, <b>Destination</b>, <b>Agency</b>, <b>Qty</b>, <b>Lock No</b>. Use one row per lock number (repeat Origin, Destination and Agency), or put several lock numbers in one cell separated by commas.</div>
       <input type="file" id="bulkAllocFile" accept=".xlsx,.xls,.csv">
     </div>
     <button type="button" class="template-link" style="margin-top:12px;" onclick="downloadAllocTemplate()">Download a blank template (.xlsx)</button>
     <div class="divider-or">or paste rows</div>
     <div class="field">
-      <label for="bulkAllocText">Destination, Agency, Qty, Lock No</label>
-      <textarea id="bulkAllocText" rows="5" placeholder="Cebu Warehouse, Metro Freight, 50, GPS-000123&#10;Cebu Warehouse, Metro Freight, , GPS-000124&#10;Davao Hub, Metro Freight, 30"></textarea>
+      <label for="bulkAllocText">Origin, Destination, Agency, Qty, Lock No</label>
+      <textarea id="bulkAllocText" rows="5" placeholder="Manila Port, Cebu Warehouse, Metro Freight, 50, GPS-000123&#10;Manila Port, Cebu Warehouse, Metro Freight, , GPS-000124&#10;Manila Port, Davao Hub, Metro Freight, 30"></textarea>
     </div>
-    <p class="helper-text">Qty is optional when lock numbers are given (it becomes the lock count; for an existing allocation it never drops below what's there). A 3-column line is read as Destination, Agency, Qty. Lock numbers are <b>added</b> to an existing allocation, must already exist as Available in GPS Locks, and can't belong to another destination/agency. Rejected lock numbers are skipped and reported.</p>
+    <p class="helper-text">Origin is looked up by Truck Lock Assigning, so include it for new allocations. Qty is optional when lock numbers are given (it becomes the lock count; for an existing allocation it never drops below what's there). Lock numbers are <b>added</b> to an existing allocation, must already exist as Available in Truck Lock Assigning, and can't belong to another destination/agency. Rejected lock numbers are skipped and reported.</p>
   `;
   const footer = `<button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-accent" onclick="submitBulkAlloc()">Upload allocations</button>`;
-  return modalShell('Bulk upload allocations', 'Add or update destination / agency quotas and their lock numbers.', body, footer);
+  return modalShell('Bulk upload allocations', 'Add or update origin, destination, agency, quantity and lock numbers.', body, footer);
 }
 function downloadAllocTemplate(){
   const ws = XLSX.utils.json_to_sheet([
-    {Destination:'Cebu Warehouse', Agency:'Metro Freight', Qty:50, 'Lock No':'GPS-000123'},
-    {Destination:'Cebu Warehouse', Agency:'Metro Freight', Qty:'', 'Lock No':'GPS-000124'}
+    {Origin:'Manila Port', Destination:'Cebu Warehouse', Agency:'Metro Freight', Qty:50, 'Lock No':'GPS-000123'},
+    {Origin:'Manila Port', Destination:'Cebu Warehouse', Agency:'Metro Freight', Qty:'', 'Lock No':'GPS-000124'}
   ]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Template');
-  XLSX.writeFile(wb, 'sealtrack_allocation_template.xlsx');
+  XLSX.writeFile(wb, 'spx_truck_lock_gps_allocation_template.xlsx');
 }
 function findAllocCol(headers, cands){
   const lower = headers.map(h=>String(h).trim().toLowerCase());
@@ -2006,16 +2035,13 @@ async function submitBulkAlloc(){
       const rows = await extractRowsFromFile(fileInput.files[0]);
       if(rows.length){
         const hs = Object.keys(rows[0]);
-        const cD = findAllocCol(hs, ['destination','dest','to']);
-        const cA = findAllocCol(hs, ['agency','agency name']);
-        const cQ = findAllocCol(hs, ['qty','quantity','lock qty allocated','lock qty','allocated','allocation','qty allocated']);
-        const cL = findAllocCol(hs, ['lock no','lock no.','lock number','lock numbers','lock nos','lock','gps lock no','gps lock','serial no','serial']);
-        const taken = new Set([cD,cA,cQ,cL].filter(Boolean));
-        const pos = (i)=> (hs[i] && !taken.has(hs[i])) ? hs[i] : null;
-        const D = cD || pos(0), A = cA || pos(1);
-        const Q = cQ || (!cL ? pos(2) : null);
-        const L = cL || (!cL && hs.length>3 ? pos(3) : null);
-        rows.forEach(r=>entries.push({d:String(r[D]??'').trim(), a:String(r[A]??'').trim(), q:Q?r[Q]:'', l:L?r[L]:''}));
+        let O = findAllocCol(hs, ['origin','from','origin name']);
+        let D = findAllocCol(hs, ['destination','dest','to']);
+        let A = findAllocCol(hs, ['agency','agency name']);
+        let Q = findAllocCol(hs, ['qty','quantity','lock qty allocated','lock qty','allocated','allocation','qty allocated']);
+        let L = findAllocCol(hs, ['lock no','lock no.','lock number','lock numbers','lock nos','lock','gps lock no','gps lock','serial no','serial']);
+        if(!D && !A){ O=hs[0]; D=hs[1]; A=hs[2]; Q=hs[3]||null; L=hs[4]||null; } // no recognised headers: Origin, Destination, Agency, Qty, Lock No
+        rows.forEach(r=>entries.push({o:O?String(r[O]??'').trim():'', d:D?String(r[D]??'').trim():'', a:A?String(r[A]??'').trim():'', q:Q?r[Q]:'', l:L?r[L]:''}));
       }
     }
   }catch(e){
@@ -2026,13 +2052,12 @@ async function submitBulkAlloc(){
     text.split(/\n+/).forEach(line=>{
       if(!line.trim()) return;
       const parts = line.split(/\t|,/).map(x=>x.trim());
-      entries.push({d:parts[0]||'', a:parts[1]||'', q:parts[2]||'', l:parts.slice(3).join(',')});
+      entries.push({o:parts[0]||'', d:parts[1]||'', a:parts[2]||'', q:parts[3]||'', l:parts.slice(4).join(',')});
     });
   }
-  entries = entries.filter(e=>e.d || e.a || String(e.q).trim() || String(e.l).trim());
+  entries = entries.filter(e=>e.o || e.d || e.a || String(e.q).trim() || String(e.l).trim());
   if(entries.length===0){ pushToast('No allocation rows found to upload.', 'err'); return; }
 
-  // group rows by destination + agency
   const groups = new Map();
   let skipped = 0;
   entries.forEach(e=>{
@@ -2045,13 +2070,14 @@ async function submitBulkAlloc(){
     }
     if(!e.d || !e.a || (qty===null && nos.length===0)){ skipped++; return; }
     const k = allocKey(e.d,e.a);
-    if(!groups.has(k)) groups.set(k, {destination:e.d, agency:e.a, qty:null, nos:[]});
+    if(!groups.has(k)) groups.set(k, {origin:'', destination:e.d, agency:e.a, qty:null, nos:[]});
     const g = groups.get(k);
+    if(e.o) g.origin = e.o;
     if(qty!==null) g.qty = qty;
     nos.forEach(n=>{ if(!g.nos.some(x=>x.toLowerCase()===n.toLowerCase())) g.nos.push(n); });
   });
 
-  let added=0, updated=0, belowUsed=0, belowLocks=0, lockCount=0;
+  let added=0, updated=0, belowUsed=0, belowLocks=0, lockCount=0, noOrigin=0;
   const lockErrors = [];
   groups.forEach(g=>{
     const ex = findAllocation(g.destination, g.agency);
@@ -2064,8 +2090,8 @@ async function submitBulkAlloc(){
     if(qty < merged.length){ belowLocks++; return; }
     if(ex && qty < allocUsedCount(ex.destination, ex.agency)){ belowUsed++; return; }
     lockCount += merged.length - existingIds.length;
-    if(ex){ ex.qty = qty; ex.lockIds = merged; ex.updatedAt = nowStamp(); updated++; }
-    else { state.allocations.push({id:genId('al'), destination:g.destination, agency:g.agency, qty, lockIds:merged, createdAt:nowStamp()}); added++; }
+    if(ex){ ex.qty = qty; ex.lockIds = merged; if(g.origin) ex.origin = g.origin; ex.updatedAt = nowStamp(); updated++; if(!ex.origin) noOrigin++; }
+    else { state.allocations.push({id:genId('al'), origin:g.origin, destination:g.destination, agency:g.agency, qty, lockIds:merged, createdAt:nowStamp()}); added++; if(!g.origin) noOrigin++; }
   });
   if(added+updated===0){
     const why = [];
@@ -2081,6 +2107,7 @@ async function submitBulkAlloc(){
   if(skipped) extra.push(`${skipped} invalid row(s) skipped`);
   if(belowLocks) extra.push(`${belowLocks} skipped (qty < lock numbers)`);
   if(belowUsed) extra.push(`${belowUsed} skipped (qty < assigned)`);
+  if(noOrigin) extra.push(`${noOrigin} allocation(s) have no origin yet — add one before assigning`);
   if(lockErrors.length) extra.push(`${lockErrors.length} lock no. rejected — ${errSummary(lockErrors)}`);
   pushToast(`${added} added, ${updated} updated, ${lockCount} lock no. reserved.` + (extra.length ? ' ' + extra.join('; ') + '.' : ''), extra.length ? 'err' : 'ok');
 }
@@ -2089,7 +2116,7 @@ function modalViewAllocLocks(dest, agency){
   const a = findAllocation(dest, agency);
   const k = allocKey(dest, agency);
   const reserved = a ? allocLocks(a).filter(l=>l.status==='available') : [];
-  const active = state.locks.filter(l=>(l.status==='assigned'||l.status==='received') && allocKey(l.destination,l.agency)===k);
+  const active = state.locks.filter(l=>(l.status==='assigned'||l.status==='received'||l.status==='returning') && allocKey(l.destination,l.agency)===k);
   const locks = [...active, ...reserved].sort((x,y)=>x.lockNo.localeCompare(y.lockNo,undefined,{numeric:true}));
   const body = `
     <p class="helper-text" style="margin:0 0 10px;">${active.length} assigned, ${reserved.length} reserved (not assigned yet).</p>
